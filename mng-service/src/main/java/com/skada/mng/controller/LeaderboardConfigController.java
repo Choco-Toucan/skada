@@ -2,7 +2,9 @@ package com.skada.mng.controller;
 
 import com.skada.common.annotation.RequirePermission;
 import com.skada.common.model.BaseResponse;
+import com.skada.common.model.PageResult;
 import com.skada.mng.model.Leaderboard;
+import com.skada.mng.model.LeaderboardCycle;
 import com.skada.mng.model.request.LeaderboardCreateRequest;
 import com.skada.mng.model.request.LeaderboardUpdateRequest;
 import com.skada.mng.service.LeaderboardConfigService;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -45,11 +48,11 @@ public class LeaderboardConfigController {
     }
 
     @GetMapping("/list")
-    public BaseResponse<List<Leaderboard>> list(String tenantId) {
-        if (tenantId != null && !tenantId.isEmpty()) {
-            return BaseResponse.success(configService.findByTenantId(tenantId));
-        }
-        return BaseResponse.success(configService.findAll());
+    public BaseResponse<PageResult<Leaderboard>> list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) String tenantId) {
+        return BaseResponse.success(configService.findAllWithPage(page, pageSize, tenantId));
     }
 
     @GetMapping("/get")
@@ -79,5 +82,13 @@ public class LeaderboardConfigController {
         }
         String adminId = (String) httpRequest.getAttribute("adminId");
         return BaseResponse.success(configService.stop(leaderboardId, adminId));
+    }
+
+    /**
+     * 查询排行榜的所有周期（含历史周期），供管理后台查看
+     */
+    @GetMapping("/cycles")
+    public BaseResponse<List<LeaderboardCycle>> getCycles(Long leaderboardId) {
+        return BaseResponse.success(configService.getCycles(leaderboardId));
     }
 }

@@ -37,4 +37,10 @@
         SELECT COALESCE(MAX(cycle_seq), 0) FROM leaderboard_cycle WHERE leaderboard_id = #{leaderboardId}
     </select>
 
+    <select id="findByLeaderboardId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_cycle
+        WHERE leaderboard_id = #{leaderboardId}
+        ORDER BY cycle_seq DESC
+    </select>
+
 </mapper>

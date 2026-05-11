@@ -65,4 +65,20 @@
         SELECT * FROM leaderboard ORDER BY id DESC
     </select>
 
+    <select id="findAllWithPage" resultMap="BaseMap">
+        SELECT * FROM leaderboard ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM leaderboard
+    </select>
+
+    <select id="findByTenantIdWithPage" resultMap="BaseMap">
+        SELECT * FROM leaderboard WHERE tenant_id = #{tenantId} ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByTenantId" resultType="long">
+        SELECT COUNT(*) FROM leaderboard WHERE tenant_id = #{tenantId}
+    </select>
+
 </mapper>

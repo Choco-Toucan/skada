@@ -31,6 +31,8 @@ public class ScoreService {
 
     private static final String RANKING_KEY_PREFIX = "skada:leaderboard:%d:cycle:%d";
     private static final String USER_COUNT_KEY_PREFIX = "skada:leaderboard:%d:cycle:%d:users";
+    /** 批量上报单次最大条数，防止超过MySQL max_allowed_packet */
+    private static final int BATCH_MAX_SIZE = 1000;
 
     private final TenantAuthService tenantAuthService;
     private final LeaderboardMapper leaderboardMapper;
@@ -74,6 +76,10 @@ public class ScoreService {
         if (!lb.getTenantId().equals(tenantId)) {
             throw new BusinessException("排行榜不属于该租户");
         }
+        // 排行榜尚未开始
+        if (lb.getStartTime() > System.currentTimeMillis()) {
+            throw new BusinessException("排行榜尚未开始");
+        }
 
         LeaderboardCycle cycle = cycleMapper.findActiveByLeaderboardId(leaderboardId);
         if (cycle == null) {
@@ -103,6 +109,10 @@ public class ScoreService {
         record.setPayload(payload);
         scoreRecordMapper.insert(record);
 
+        // 记录去重用户数（HyperLogLog），用于用户数滚动策略
+        String userCountKey = String.format(USER_COUNT_KEY_PREFIX, leaderboardId, cycle.getId());
+        redisTemplate.opsForHyperLogLog().add(userCountKey, userId);
+
         // 检查是否需要按用户数滚动
         checkUserCountRoll(lb, cycle);
 
@@ -119,6 +129,9 @@ public class ScoreService {
         if (items == null || items.isEmpty()) {
             throw new BusinessException("上报数据不能为空");
         }
+        if (items.size() > BATCH_MAX_SIZE) {
+            throw new BusinessException("单次批量上报不能超过" + BATCH_MAX_SIZE + "条");
+        }
 
         // 鉴权
         Tenant tenant = tenantAuthService.authenticate(tenantId, secretKey);
@@ -134,18 +147,34 @@ public class ScoreService {
         if (!lb.getTenantId().equals(tenantId)) {
             throw new BusinessException("排行榜不属于该租户");
         }
+        if (lb.getStartTime() > System.currentTimeMillis()) {
+            throw new BusinessException("排行榜尚未开始");
+        }
 
         LeaderboardCycle cycle = cycleMapper.findActiveByLeaderboardId(leaderboardId);
         if (cycle == null) {
             throw new BusinessException("当前没有活跃的排行榜周期");
         }
 
+        // 检查是否允许重复上报
+        if (lb.getAllowDuplicateReport() == 0) {
+            for (ScoreSubmitItem item : items) {
+                ScoreRecord existing = scoreRecordMapper.findByUserAndCycle(
+                        leaderboardId, cycle.getId(), item.getUserId());
+                if (existing != null) {
+                    throw new BusinessException("用户 " + item.getUserId() + " 已上报过分数，不允许重复上报");
+                }
+            }
+        }
+
         String rankingKey = String.format(RANKING_KEY_PREFIX, leaderboardId, cycle.getId());
+        String userCountKey = String.format(USER_COUNT_KEY_PREFIX, leaderboardId, cycle.getId());
 
         // 逐条处理
         for (ScoreSubmitItem item : items) {
             redisTemplate.opsForZSet().add(rankingKey, item.getUserId(),
                     item.getScore().doubleValue());
+            redisTemplate.opsForHyperLogLog().add(userCountKey, item.getUserId());
         }
 
         // 批量写入MySQL

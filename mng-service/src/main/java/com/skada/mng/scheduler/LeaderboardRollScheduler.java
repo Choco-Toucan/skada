@@ -55,9 +55,20 @@ public class LeaderboardRollScheduler {
             long now = System.currentTimeMillis();
 
             for (Leaderboard lb : allLeaderboards) {
-                // 仅处理活跃的周期性滚动排行榜
-                if (!"active".equals(lb.getStatus())
-                        || !"periodic".equals(lb.getRollStrategy())) {
+                // 仅处理活跃排行榜
+                if (!"active".equals(lb.getStatus())) {
+                    continue;
+                }
+
+                // 检查结束时间是否已到，自动终止
+                if (lb.getEndTime() != null && now >= lb.getEndTime()) {
+                    log.info("排行榜到期自动终止: leaderboardId={}", lb.getId());
+                    stopLeaderboard(lb.getId());
+                    continue;
+                }
+
+                // 仅处理周期性滚动
+                if (!"periodic".equals(lb.getRollStrategy())) {
                     continue;
                 }
 
@@ -80,6 +91,23 @@ public class LeaderboardRollScheduler {
             }
         } finally {
             distributedLock.unlock("scheduler:periodic-roll", lockValue);
+        }
+    }
+
+    @Transactional
+    public void stopLeaderboard(Long leaderboardId) {
+        // 关闭当前活跃周期
+        LeaderboardCycle activeCycle = cycleMapper.findActiveByLeaderboardId(leaderboardId);
+        if (activeCycle != null) {
+            cycleMapper.closeCycle(activeCycle.getId(), System.currentTimeMillis());
+        }
+
+        // 标记排行榜已终止
+        Leaderboard lb = leaderboardMapper.findById(leaderboardId);
+        if (lb != null) {
+            lb.setStatus("stopped");
+            lb.setUpdateBy("scheduler");
+            leaderboardMapper.update(lb);
         }
     }
 

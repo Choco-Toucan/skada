@@ -17,5 +17,15 @@ public interface LeaderboardMapper {
 
     List<Leaderboard> findByTenantId(@Param("tenantId") String tenantId);
 
+    List<Leaderboard> findByTenantIdWithPage(@Param("tenantId") String tenantId,
+                                              @Param("offset") int offset,
+                                              @Param("limit") int limit);
+
+    long countByTenantId(@Param("tenantId") String tenantId);
+
     List<Leaderboard> findAll();
+
+    List<Leaderboard> findAllWithPage(@Param("offset") int offset, @Param("limit") int limit);
+
+    long count();
 }

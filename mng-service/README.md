@@ -5,25 +5,29 @@
 ## 核心功能
 
 - **管理员登录** — Token 认证，2 小时过期自动续期
-- **租户管理** — 创建、编辑、查询租户，自动生成 tenantId 和 secretKey
+- **租户管理** — 创建、编辑、查询租户（分页），自动生成 tenantId 和 secretKey
 - **排行榜配置** — 创建排行榜，配置滚动策略、排序规则等
 - **滚动控制** — 手动触发滚动、手动终止排行榜
-- **数据查询** — 查询排行榜的分数数据、历史周期
+- **自动调度** — 周期性滚动自动触发、排行榜到期自动终止
+- **数据查询** — 查询排行榜的周期列表、历史数据
 
 ## 接口概览
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/v1/auth/login` | 管理员登录（@SkipLoginCheck） |
-| POST | `/api/v1/tenant/create` | 创建租户 |
-| POST | `/api/v1/tenant/update` | 编辑租户 |
-| GET | `/api/v1/tenant/list` | 租户列表 |
-| POST | `/api/v1/leaderboard/create` | 创建排行榜 |
-| POST | `/api/v1/leaderboard/update` | 编辑排行榜 |
-| GET | `/api/v1/leaderboard/list` | 排行榜列表 |
-| POST | `/api/v1/leaderboard/roll` | 手动滚动 |
-| POST | `/api/v1/leaderboard/stop` | 手动终止 |
-| GET | `/api/v1/leaderboard/scores` | 查询分数数据 |
+| POST | `/api/v1/auth/logout` | 管理员登出 |
+| POST | `/api/v1/tenant/create` | 创建租户（需admin权限） |
+| POST | `/api/v1/tenant/update` | 编辑租户（需admin权限） |
+| GET | `/api/v1/tenant/list` | 租户列表（分页） |
+| GET | `/api/v1/tenant/get` | 租户详情 |
+| POST | `/api/v1/leaderboard/create` | 创建排行榜（需admin权限） |
+| POST | `/api/v1/leaderboard/update` | 编辑排行榜（需admin权限） |
+| GET | `/api/v1/leaderboard/list` | 排行榜列表（分页，可按租户筛选） |
+| GET | `/api/v1/leaderboard/get` | 排行榜详情 |
+| GET | `/api/v1/leaderboard/cycles` | 周期列表（含历史周期） |
+| POST | `/api/v1/leaderboard/roll` | 手动滚动（需admin权限） |
+| POST | `/api/v1/leaderboard/stop` | 手动终止（需admin权限） |
 
 ## 滚动策略
 

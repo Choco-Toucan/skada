@@ -1,8 +1,16 @@
 import http from './http'
-import type { ApiResponse, Tenant, TenantCreateRequest, TenantUpdateRequest } from '@/types'
+import type { ApiResponse, PageResult, Tenant, TenantCreateRequest, TenantUpdateRequest } from '@/types'
 
-export function listTenants() {
-  return http.get<ApiResponse<Tenant[]>>('/tenant/list')
+export function listTenants(page: number = 1, pageSize: number = 20) {
+  return http.get<ApiResponse<PageResult<Tenant>>>('/tenant/list', {
+    params: { page, pageSize },
+  })
+}
+
+export function listAllTenants() {
+  return http.get<ApiResponse<PageResult<Tenant>>>('/tenant/list', {
+    params: { page: 1, pageSize: 1000 },
+  })
 }
 
 export function getTenant(id: number) {

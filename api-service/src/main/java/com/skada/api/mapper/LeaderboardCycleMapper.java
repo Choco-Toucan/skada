@@ -4,6 +4,8 @@ import com.skada.api.model.LeaderboardCycle;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface LeaderboardCycleMapper {
 
@@ -16,4 +18,6 @@ public interface LeaderboardCycleMapper {
     int closeCycle(@Param("id") Long id, @Param("endTime") Long endTime);
 
     int getMaxCycleSeq(@Param("leaderboardId") Long leaderboardId);
+
+    List<LeaderboardCycle> findByLeaderboardId(@Param("leaderboardId") Long leaderboardId);
 }

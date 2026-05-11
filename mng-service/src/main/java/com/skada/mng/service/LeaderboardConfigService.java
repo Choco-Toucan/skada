@@ -1,6 +1,7 @@
 package com.skada.mng.service;
 
 import com.skada.common.exception.BusinessException;
+import com.skada.common.model.PageResult;
 import com.skada.mng.mapper.LeaderboardCycleMapper;
 import com.skada.mng.mapper.LeaderboardMapper;
 import com.skada.mng.model.Leaderboard;
@@ -117,6 +118,21 @@ public class LeaderboardConfigService {
     }
 
     /**
+     * 分页查询排行榜（可按租户筛选）
+     */
+    public PageResult<Leaderboard> findAllWithPage(int page, int pageSize, String tenantId) {
+        int offset = (page - 1) * pageSize;
+        if (tenantId != null && !tenantId.isEmpty()) {
+            List<Leaderboard> records = leaderboardMapper.findByTenantIdWithPage(tenantId, offset, pageSize);
+            long total = leaderboardMapper.countByTenantId(tenantId);
+            return new PageResult<>(records, total, page, pageSize);
+        }
+        List<Leaderboard> records = leaderboardMapper.findAllWithPage(offset, pageSize);
+        long total = leaderboardMapper.count();
+        return new PageResult<>(records, total, page, pageSize);
+    }
+
+    /**
      * 查询所有排行榜
      */
     public List<Leaderboard> findAll() {
@@ -196,6 +212,13 @@ public class LeaderboardConfigService {
         leaderboardMapper.update(lb);
 
         return lb;
+    }
+
+    /**
+     * 查询排行榜的所有周期（含历史周期）
+     */
+    public List<LeaderboardCycle> getCycles(Long leaderboardId) {
+        return cycleMapper.findByLeaderboardId(leaderboardId);
     }
 
     private void validateCreateRequest(LeaderboardCreateRequest request) {

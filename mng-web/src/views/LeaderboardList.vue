@@ -20,7 +20,13 @@
           </a-select-option>
         </a-select>
       </div>
-      <a-table :dataSource="list" :columns="columns" :loading="loading" rowKey="id">
+      <a-table
+        :dataSource="list"
+        :columns="columns"
+        :loading="loading"
+        rowKey="id"
+        :pagination="{ current: page, pageSize: pageSize, total: total, showSizeChanger: true, onChange: onPageChange }"
+      >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 'active' ? 'green' : 'red'">
@@ -50,13 +56,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { listLeaderboards, rollLeaderboard, stopLeaderboard } from '@/api/leaderboard'
-import { listTenants } from '@/api/tenant'
+import { listAllTenants } from '@/api/tenant'
 import type { Leaderboard, Tenant } from '@/types'
 
 const list = ref<Leaderboard[]>([])
 const tenants = ref<Tenant[]>([])
 const filterTenantId = ref<string | undefined>(undefined)
 const loading = ref(false)
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
@@ -72,16 +81,23 @@ const columns = [
 async function fetchLeaderboards() {
   loading.value = true
   try {
-    const res = await listLeaderboards(filterTenantId.value)
-    list.value = res.data.data
+    const res = await listLeaderboards(page.value, pageSize.value, filterTenantId.value)
+    list.value = res.data.data.records
+    total.value = res.data.data.total
   } finally {
     loading.value = false
   }
 }
 
+function onPageChange(p: number, ps: number) {
+  page.value = p
+  pageSize.value = ps
+  fetchLeaderboards()
+}
+
 async function fetchTenants() {
-  const res = await listTenants()
-  tenants.value = res.data.data
+  const res = await listAllTenants()
+  tenants.value = res.data.data.records
 }
 
 async function handleRoll(record: Leaderboard) {

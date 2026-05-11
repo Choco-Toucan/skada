@@ -6,9 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 用中文交流，但对于交流中的一些技术关键字，还保持英文。代码使用英文。注释和提交信息使用中文。
 
-## Repository Status
-
-This is a freshly initialized repo. No code, build system, or tests have been set up yet.
 
 ## Remote
 

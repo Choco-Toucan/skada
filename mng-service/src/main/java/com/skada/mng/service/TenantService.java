@@ -1,6 +1,7 @@
 package com.skada.mng.service;
 
 import com.skada.common.exception.BusinessException;
+import com.skada.common.model.PageResult;
 import com.skada.mng.mapper.TenantMapper;
 import com.skada.mng.model.Tenant;
 import com.skada.mng.model.request.TenantCreateRequest;
@@ -75,6 +76,16 @@ public class TenantService {
      */
     public List<Tenant> findAll() {
         return tenantMapper.findAll();
+    }
+
+    /**
+     * 分页查询租户
+     */
+    public PageResult<Tenant> findAllWithPage(int page, int pageSize) {
+        int offset = (page - 1) * pageSize;
+        List<Tenant> records = tenantMapper.findAllWithPage(offset, pageSize);
+        long total = tenantMapper.count();
+        return new PageResult<>(records, total, page, pageSize);
     }
 
     /**

@@ -1,9 +1,9 @@
 import http from './http'
-import type { ApiResponse, Leaderboard, LeaderboardCreateRequest } from '@/types'
+import type { ApiResponse, PageResult, Leaderboard, LeaderboardCreateRequest } from '@/types'
 
-export function listLeaderboards(tenantId?: string) {
-  return http.get<ApiResponse<Leaderboard[]>>('/leaderboard/list', {
-    params: tenantId ? { tenantId } : {},
+export function listLeaderboards(page: number = 1, pageSize: number = 20, tenantId?: string) {
+  return http.get<ApiResponse<PageResult<Leaderboard>>>('/leaderboard/list', {
+    params: { page, pageSize, ...(tenantId ? { tenantId } : {}) },
   })
 }
 

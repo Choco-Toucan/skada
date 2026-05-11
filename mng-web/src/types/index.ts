@@ -6,6 +6,15 @@ export interface ApiResponse<T> {
   timestamp: number
 }
 
+/** 分页结果 */
+export interface PageResult<T> {
+  records: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 /** 登录请求 */
 export interface LoginRequest {
   username: string

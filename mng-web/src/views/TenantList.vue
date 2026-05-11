@@ -7,7 +7,13 @@
           新建租户
         </a-button>
       </template>
-      <a-table :dataSource="tenants" :columns="columns" :loading="loading" rowKey="id">
+      <a-table
+        :dataSource="tenants"
+        :columns="columns"
+        :loading="loading"
+        rowKey="id"
+        :pagination="{ current: page, pageSize: pageSize, total: total, showSizeChanger: true, onChange: onPageChange }"
+      >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 1 ? 'green' : 'red'">
@@ -49,6 +55,9 @@ const loading = ref(false)
 const modalOpen = ref(false)
 const isEdit = ref(false)
 const editId = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 
 const columns = [
   { title: 'ID', dataIndex: 'tenantId', key: 'tenantId' },
@@ -69,11 +78,18 @@ const form = reactive({
 async function fetchTenants() {
   loading.value = true
   try {
-    const res = await listTenants()
-    tenants.value = res.data.data
+    const res = await listTenants(page.value, pageSize.value)
+    tenants.value = res.data.data.records
+    total.value = res.data.data.total
   } finally {
     loading.value = false
   }
+}
+
+function onPageChange(p: number, ps: number) {
+  page.value = p
+  pageSize.value = ps
+  fetchTenants()
 }
 
 function showCreate() {

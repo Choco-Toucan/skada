@@ -18,4 +18,8 @@ public interface TenantMapper {
     Tenant findByTenantId(@Param("tenantId") String tenantId);
 
     List<Tenant> findAll();
+
+    List<Tenant> findAllWithPage(@Param("offset") int offset, @Param("limit") int limit);
+
+    long count();
 }

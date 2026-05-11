@@ -2,6 +2,7 @@ package com.skada.mng.controller;
 
 import com.skada.common.annotation.RequirePermission;
 import com.skada.common.model.BaseResponse;
+import com.skada.common.model.PageResult;
 import com.skada.mng.model.Tenant;
 import com.skada.mng.model.request.TenantCreateRequest;
 import com.skada.mng.model.request.TenantUpdateRequest;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -47,8 +49,10 @@ public class TenantController {
     }
 
     @GetMapping("/list")
-    public BaseResponse<List<Tenant>> list() {
-        return BaseResponse.success(tenantService.findAll());
+    public BaseResponse<PageResult<Tenant>> list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        return BaseResponse.success(tenantService.findAllWithPage(page, pageSize));
     }
 
     @GetMapping("/get")

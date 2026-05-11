@@ -7,12 +7,14 @@ Skada 公共库模块。
 ### 拦截器
 所有拦截器在 `com.skada.common.interceptor` 包中：
 
+- **ValidationInterceptor** — 数据校验。校验 POST/PUT 请求的 Content-Type 和请求体大小。
 - **LoginInterceptor** — 登录态校验。标注 `@SkipLoginCheck` 的方法跳过校验。Token 从 `Authorization` 请求头获取，自动续期 2 小时。
 - **PermissionInterceptor** — 权限校验。标注 `@RequirePermission` 的方法需要对应权限。
 - **LogInterceptor** — 接口日志。记录请求方法、URI、状态码、耗时，输出到 `logs/api.log`。
 
 ### 模型
 - **BaseResponse** — 统一 API 响应格式 `{code, message, data, timestamp}`。
+- **PageResult** — 统一分页结果 `{records, total, page, pageSize, totalPages}`。
 - **BusinessException** — 业务异常，可携带错误码。
 
 ### 注解
