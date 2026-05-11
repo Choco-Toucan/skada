@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.api.mapper.TenantMapper">
+
+    <resultMap id="BaseMap" type="com.skada.api.model.Tenant">
+        <id column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="name" property="name"/>
+        <result column="secret_key" property="secretKey"/>
+        <result column="allow_anonymous_query" property="allowAnonymousQuery"/>
+        <result column="status" property="status"/>
+    </resultMap>
+
+    <select id="findByTenantId" resultMap="BaseMap">
+        SELECT id, tenant_id, name, secret_key, allow_anonymous_query, status
+        FROM tenant WHERE tenant_id = #{tenantId} LIMIT 1
+    </select>
+
+</mapper>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.api.mapper.ScoreRecordMapper">
+
+    <resultMap id="BaseMap" type="com.skada.api.model.ScoreRecord">
+        <id column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="leaderboard_id" property="leaderboardId"/>
+        <result column="cycle_id" property="cycleId"/>
+        <result column="user_id" property="userId"/>
+        <result column="score" property="score"/>
+        <result column="payload" property="payload"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO score_record (tenant_id, leaderboard_id, cycle_id, user_id, score, payload)
+        VALUES (#{tenantId}, #{leaderboardId}, #{cycleId}, #{userId}, #{score}, #{payload})
+    </insert>
+
+    <insert id="insertBatch" parameterType="list">
+        INSERT INTO score_record (tenant_id, leaderboard_id, cycle_id, user_id, score, payload)
+        VALUES
+        <foreach collection="list" item="r" separator=",">
+            (#{r.tenantId}, #{r.leaderboardId}, #{r.cycleId}, #{r.userId}, #{r.score}, #{r.payload})
+        </foreach>
+    </insert>
+
+    <select id="findRanking" resultMap="BaseMap">
+        SELECT * FROM score_record
+        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId}
+        ORDER BY score ${sortOrder}
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByUserAndCycle" resultMap="BaseMap">
+        SELECT * FROM score_record
+        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId} AND user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="countByCycle" resultType="int">
+        SELECT COUNT(*) FROM score_record
+        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId}
+    </select>
+
+    <select id="countDistinctUsersByCycle" resultType="int">
+        SELECT COUNT(DISTINCT user_id) FROM score_record
+        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId}
+    </select>
+
+</mapper>

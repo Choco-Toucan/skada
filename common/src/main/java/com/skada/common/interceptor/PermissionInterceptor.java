@@ -5,23 +5,18 @@ import com.skada.common.model.BaseResponse;
 import com.google.gson.Gson;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * 权限校验拦截器
- * 根据 @RequirePermission 注解校验当前用户权限
+ * 根据 @RequirePermission 注解校验当前用户角色是否满足权限要求
  */
 public class PermissionInterceptor implements HandlerInterceptor {
 
-    private static final String ADMIN_PERMISSION_PREFIX = "skada:admin:permission:";
-
-    private final StringRedisTemplate redisTemplate;
     private final Gson gson;
 
-    public PermissionInterceptor(StringRedisTemplate redisTemplate, Gson gson) {
-        this.redisTemplate = redisTemplate;
+    public PermissionInterceptor(Gson gson) {
         this.gson = gson;
     }
 
@@ -37,16 +32,14 @@ public class PermissionInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        String adminId = (String) request.getAttribute("adminId");
-        if (adminId == null) {
+        String role = (String) request.getAttribute("adminRole");
+        if (role == null) {
             writeError(response, 401, "未登录");
             return false;
         }
 
-        // 从Redis获取管理员权限列表，校验是否包含所需权限
-        String permissionValue = redisTemplate.opsForValue()
-                .get(ADMIN_PERMISSION_PREFIX + adminId);
-        if (permissionValue == null || !permissionValue.contains(annotation.value())) {
+        // 当前用户的角色等于注解要求的权限标识则放行
+        if (!role.equals(annotation.value())) {
             writeError(response, 403, "权限不足");
             return false;
         }

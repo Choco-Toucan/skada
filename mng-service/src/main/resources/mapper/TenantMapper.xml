@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.mng.mapper.TenantMapper">
+
+    <resultMap id="BaseMap" type="com.skada.mng.model.Tenant">
+        <id column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="name" property="name"/>
+        <result column="secret_key" property="secretKey"/>
+        <result column="allow_anonymous_query" property="allowAnonymousQuery"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tenant (tenant_id, name, secret_key, allow_anonymous_query, status, create_by, update_by)
+        VALUES (#{tenantId}, #{name}, #{secretKey}, #{allowAnonymousQuery}, 1, #{createBy}, #{updateBy})
+    </insert>
+
+    <update id="update">
+        UPDATE tenant
+        SET name = #{name},
+            allow_anonymous_query = #{allowAnonymousQuery},
+            status = #{status},
+            update_by = #{updateBy}
+        WHERE id = #{id}
+    </update>
+
+    <select id="findById" resultMap="BaseMap">
+        SELECT * FROM tenant WHERE id = #{id}
+    </select>
+
+    <select id="findByTenantId" resultMap="BaseMap">
+        SELECT * FROM tenant WHERE tenant_id = #{tenantId} LIMIT 1
+    </select>
+
+    <select id="findAll" resultMap="BaseMap">
+        SELECT * FROM tenant ORDER BY id DESC
+    </select>
+
+</mapper>

@@ -54,8 +54,8 @@ public class LoginInterceptor implements HandlerInterceptor {
             token = token.substring(7);
         }
 
-        String adminId = redisTemplate.opsForValue().get(TOKEN_PREFIX + token);
-        if (adminId == null) {
+        String tokenValue = redisTemplate.opsForValue().get(TOKEN_PREFIX + token);
+        if (tokenValue == null) {
             writeError(response, 401, "token已过期或无效");
             return false;
         }
@@ -63,7 +63,12 @@ public class LoginInterceptor implements HandlerInterceptor {
         // 自动续期
         redisTemplate.expire(TOKEN_PREFIX + token, TOKEN_EXPIRE_SECONDS, TimeUnit.SECONDS);
 
-        request.setAttribute("adminId", adminId);
+        // 解析 token 值，格式为 adminId:role
+        String[] parts = tokenValue.split(":", 2);
+        request.setAttribute("adminId", parts[0]);
+        if (parts.length > 1) {
+            request.setAttribute("adminRole", parts[1]);
+        }
         return true;
     }
 

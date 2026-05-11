@@ -1,0 +1,45 @@
+package com.skada.mng.model.request;
+
+/**
+ * 更新排行榜请求
+ */
+public class LeaderboardUpdateRequest {
+
+    private Long id;
+    private String name;
+    private Long startTime;
+    private Long endTime;
+    private String sortOrder;
+    private Integer maxQueryUsers;
+    private Integer allowDuplicateReport;
+    private Integer allowHistoryQuery;
+    private String rollStrategy;
+    private Integer rollIntervalValue;
+    private String rollIntervalUnit;
+    private Integer rollUserCount;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public Long getStartTime() { return startTime; }
+    public void setStartTime(Long startTime) { this.startTime = startTime; }
+    public Long getEndTime() { return endTime; }
+    public void setEndTime(Long endTime) { this.endTime = endTime; }
+    public String getSortOrder() { return sortOrder; }
+    public void setSortOrder(String sortOrder) { this.sortOrder = sortOrder; }
+    public Integer getMaxQueryUsers() { return maxQueryUsers; }
+    public void setMaxQueryUsers(Integer maxQueryUsers) { this.maxQueryUsers = maxQueryUsers; }
+    public Integer getAllowDuplicateReport() { return allowDuplicateReport; }
+    public void setAllowDuplicateReport(Integer allowDuplicateReport) { this.allowDuplicateReport = allowDuplicateReport; }
+    public Integer getAllowHistoryQuery() { return allowHistoryQuery; }
+    public void setAllowHistoryQuery(Integer allowHistoryQuery) { this.allowHistoryQuery = allowHistoryQuery; }
+    public String getRollStrategy() { return rollStrategy; }
+    public void setRollStrategy(String rollStrategy) { this.rollStrategy = rollStrategy; }
+    public Integer getRollIntervalValue() { return rollIntervalValue; }
+    public void setRollIntervalValue(Integer rollIntervalValue) { this.rollIntervalValue = rollIntervalValue; }
+    public String getRollIntervalUnit() { return rollIntervalUnit; }
+    public void setRollIntervalUnit(String rollIntervalUnit) { this.rollIntervalUnit = rollIntervalUnit; }
+    public Integer getRollUserCount() { return rollUserCount; }
+    public void setRollUserCount(Integer rollUserCount) { this.rollUserCount = rollUserCount; }
+}

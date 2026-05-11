@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.mng.mapper.LeaderboardMapper">
+
+    <resultMap id="BaseMap" type="com.skada.mng.model.Leaderboard">
+        <id column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="name" property="name"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="max_query_users" property="maxQueryUsers"/>
+        <result column="allow_duplicate_report" property="allowDuplicateReport"/>
+        <result column="allow_history_query" property="allowHistoryQuery"/>
+        <result column="roll_strategy" property="rollStrategy"/>
+        <result column="roll_interval_value" property="rollIntervalValue"/>
+        <result column="roll_interval_unit" property="rollIntervalUnit"/>
+        <result column="roll_user_count" property="rollUserCount"/>
+        <result column="status" property="status"/>
+        <result column="current_cycle_id" property="currentCycleId"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO leaderboard (tenant_id, name, start_time, end_time, sort_order, max_query_users,
+                                 allow_duplicate_report, allow_history_query, roll_strategy,
+                                 roll_interval_value, roll_interval_unit, roll_user_count,
+                                 status, create_by, update_by)
+        VALUES (#{tenantId}, #{name}, #{startTime}, #{endTime}, #{sortOrder}, #{maxQueryUsers},
+                #{allowDuplicateReport}, #{allowHistoryQuery}, #{rollStrategy},
+                #{rollIntervalValue}, #{rollIntervalUnit}, #{rollUserCount},
+                'active', #{createBy}, #{updateBy})
+    </insert>
+
+    <update id="update">
+        UPDATE leaderboard
+        SET name = #{name},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            sort_order = #{sortOrder},
+            max_query_users = #{maxQueryUsers},
+            allow_duplicate_report = #{allowDuplicateReport},
+            allow_history_query = #{allowHistoryQuery},
+            roll_strategy = #{rollStrategy},
+            roll_interval_value = #{rollIntervalValue},
+            roll_interval_unit = #{rollIntervalUnit},
+            roll_user_count = #{rollUserCount},
+            update_by = #{updateBy}
+        WHERE id = #{id}
+    </update>
+
+    <select id="findById" resultMap="BaseMap">
+        SELECT * FROM leaderboard WHERE id = #{id}
+    </select>
+
+    <select id="findByTenantId" resultMap="BaseMap">
+        SELECT * FROM leaderboard WHERE tenant_id = #{tenantId} ORDER BY id DESC
+    </select>
+
+    <select id="findAll" resultMap="BaseMap">
+        SELECT * FROM leaderboard ORDER BY id DESC
+    </select>
+
+</mapper>
