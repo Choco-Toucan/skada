@@ -6,6 +6,7 @@ SpringCloud 版本为2025.1.1
 使用pom.xml和maven管理依赖，从maven中央仓库获取依赖
 
 持久层采用mysql + mybatis,禁止使用mybatis-plus
+mybatis版本用4.0.1
 
 面向玩家的读接口需要有缓存层设计，采用redis，缓存过期时间统一为10分钟，要有防缓存穿透的机制
 
