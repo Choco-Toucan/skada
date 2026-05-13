@@ -12,6 +12,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - GitHub: `git@github.com:Choco-Toucan/skada.git`
 每次提交都要包含变更信息，不要太过冗长，保持简洁，使用中文
 
+每次提交到远端以后，将本次提交的变更内容通过飞书机器人webhook的方式进行发送
+webhook的url为：https://open.feishu.cn/open-apis/bot/v2/hook/2a4dabbe-eba5-45f3-92a4-06e695113364
+加密密钥为GlMHLFyShfqzfP1i4FN5jf
+
+注意，该webhook可能为多个场景使用，所以通知内容要丰富些，使用规范化的消息卡片。
+
 
 ## 概览
 这是一个关于对外提供排行榜服务的SAAS平台的项目。采用monorepo管理。

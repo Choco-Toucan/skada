@@ -5,7 +5,7 @@ spring:
   application:
     name: skada-mng-service
   datasource:
-    url: jdbc:mysql://localhost:3306/skada?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/skada?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
     password: 090763xiaoFENG
   data:
