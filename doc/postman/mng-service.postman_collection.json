@@ -1,0 +1,334 @@
+{
+  "info": {
+    "name": "Skada MNG Service",
+    "description": "Skada 管理平面API接口集合。\n\n基础地址: http://localhost:8811\n所有管理接口（除login/health）需要在Header中携带:\n  Authorization: Bearer <token>",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8811", "type": "string" },
+    { "key": "token", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "登录",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\":\"admin\",\"password\":\"admin123\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "管理员登录，返回token。登录成功后请将返回的token设置到集合变量中。"
+          },
+          "response": []
+        },
+        {
+          "name": "登出",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "健康检查",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tenant",
+      "description": "租户管理（创建/更新需admin权限）",
+      "item": [
+        {
+          "name": "创建租户",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"测试游戏\",\"allowAnonymousQuery\":1}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenant/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenant", "create"]
+            },
+            "description": "创建租户，自动生成tenantId和secretKey。需admin权限。"
+          },
+          "response": []
+        },
+        {
+          "name": "编辑租户",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\":1,\"name\":\"新名称\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenant/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenant", "update"]
+            },
+            "description": "编辑租户信息。需admin权限。"
+          },
+          "response": []
+        },
+        {
+          "name": "租户列表",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenant/list?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenant", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "租户详情",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenant/get?id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenant", "get"],
+              "query": [{ "key": "id", "value": "1" }]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Metric",
+      "description": "指标管理（需admin权限）",
+      "item": [
+        {
+          "name": "创建指标",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"tenantId\":\"tn_xxxx\",\"name\":\"击杀数\",\"code\":\"kills\",\"description\":\"玩家击杀数\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/metric/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "metric", "create"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "编辑指标",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\":1,\"name\":\"新名称\",\"description\":\"新描述\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/metric/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "metric", "update"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "删除指标",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"id\":1}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/metric/delete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "metric", "delete"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "按租户查询指标",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/metric/list?tenantId=tn_xxxx",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "metric", "list"],
+              "query": [{ "key": "tenantId", "value": "tn_xxxx" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "指标分页",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/metric/page?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "metric", "page"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Leaderboard Plan",
+      "description": "排行榜计划管理",
+      "item": [
+        {
+          "name": "创建排行榜计划",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"tenantId\":\"tn_xxxx\",\"name\":\"击杀排行榜\",\"startTime\":1700000000000,\"rollStrategy\":\"none\",\"allowDuplicateReport\":1,\"metrics\":[{\"metricId\":1,\"priority\":1,\"sortOrder\":\"desc\"},{\"metricId\":2,\"priority\":2,\"sortOrder\":\"desc\"}]}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "create"]
+            },
+            "description": "创建排行榜计划。需admin权限。\nmetrics字段必填，每项包含metricId/priority/sortOrder。"
+          },
+          "response": []
+        },
+        {
+          "name": "编辑排行榜计划",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\":1,\"name\":\"新名称\",\"metrics\":[{\"metricId\":1,\"priority\":1,\"sortOrder\":\"desc\"}]}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "update"]
+            },
+            "description": "编辑排行榜计划。metrics为空时不更新指标关联。需admin权限。"
+          },
+          "response": []
+        },
+        {
+          "name": "排行榜计划列表",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/list?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "tenantId", "value": "", "description": "可选：按租户筛选", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "排行榜计划详情",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/get?id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "get"],
+              "query": [{ "key": "id", "value": "1" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "获取实例列表",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/instances?leaderboardId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "instances"],
+              "query": [{ "key": "leaderboardId", "value": "1" }]
+            },
+            "description": "获取指定排行榜计划的所有实例（含历史）"
+          },
+          "response": []
+        },
+        {
+          "name": "手动滚动",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"leaderboardId\":1}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/roll",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "roll"]
+            },
+            "description": "手动触发排行榜滚动，创建新实例。需admin权限。"
+          },
+          "response": []
+        },
+        {
+          "name": "手动终止",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"leaderboardId\":1}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "stop"]
+            },
+            "description": "手动终止排行榜计划，关闭当前活跃实例。需admin权限。"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

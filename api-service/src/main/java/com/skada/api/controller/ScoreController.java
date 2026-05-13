@@ -11,6 +11,7 @@ import java.util.Map;
 
 /**
  * 分数上报接口
+ * payload 位于指标+分数层级：每个 metric 可携带独立的 payload
  */
 @RestController
 @RequestMapping("/api/v1/score")
@@ -24,34 +25,31 @@ public class ScoreController {
 
     /**
      * 单条分数上报
-     * 请求体: {tenantId, secretKey, leaderboardId, userId, metrics: [{metricId, value}], payload}
+     * 请求体: {tenantId, secretKey, userId, metrics: [{metricId, value, payload?}]}
      */
     @PostMapping("/submit")
     public BaseResponse<Void> submit(@RequestBody Map<String, Object> body) {
         String tenantId = requireString(body, "tenantId");
         String secretKey = requireString(body, "secretKey");
-        Long leaderboardId = requireLong(body, "leaderboardId");
         String userId = requireString(body, "userId");
-        String payload = (String) body.get("payload");
 
         List<ScoreService.MetricValue> metrics = parseMetrics(body);
         if (metrics.isEmpty()) {
             throw new IllegalArgumentException("metrics 不能为空");
         }
 
-        scoreService.submit(tenantId, secretKey, leaderboardId, userId, metrics, payload);
+        scoreService.submit(tenantId, secretKey, userId, metrics);
         return BaseResponse.success();
     }
 
     /**
-     * 批量分数上报（同一排行榜）
-     * 请求体: {tenantId, secretKey, leaderboardId, scores: [{userId, metrics: [{metricId, value}], payload}]}
+     * 批量分数上报
+     * 请求体: {tenantId, secretKey, scores: [{userId, metrics: [{metricId, value, payload?}]}]}
      */
     @PostMapping("/batch-submit")
     public BaseResponse<Void> batchSubmit(@RequestBody Map<String, Object> body) {
         String tenantId = requireString(body, "tenantId");
         String secretKey = requireString(body, "secretKey");
-        Long leaderboardId = requireLong(body, "leaderboardId");
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> scores = (List<Map<String, Object>>) body.get("scores");
@@ -73,11 +71,10 @@ public class ScoreController {
                 throw new IllegalArgumentException("scores 中每条数据必须包含 metrics");
             }
             item.setMetrics(metrics);
-            item.setPayload((String) m.get("payload"));
             items.add(item);
         }
 
-        scoreService.batchSubmit(tenantId, secretKey, leaderboardId, items);
+        scoreService.batchSubmit(tenantId, secretKey, items);
         return BaseResponse.success();
     }
 
@@ -97,6 +94,7 @@ public class ScoreController {
             ScoreService.MetricValue mv = new ScoreService.MetricValue();
             mv.setMetricId(m.get("metricId") != null ? ((Number) m.get("metricId")).longValue() : null);
             mv.setValue(m.get("value") != null ? new BigDecimal(m.get("value").toString()) : null);
+            mv.setPayload((String) m.get("payload"));
             if (mv.getMetricId() == null || mv.getValue() == null) {
                 throw new IllegalArgumentException("metrics 中每条数据必须包含 metricId 和 value");
             }
@@ -111,13 +109,5 @@ public class ScoreController {
             throw new IllegalArgumentException(key + " 不能为空");
         }
         return val;
-    }
-
-    private Long requireLong(Map<String, Object> body, String key) {
-        Object val = body.get(key);
-        if (val == null) {
-            throw new IllegalArgumentException(key + " 不能为空");
-        }
-        return ((Number) val).longValue();
     }
 }

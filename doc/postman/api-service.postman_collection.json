@@ -13,7 +13,7 @@
   "item": [
     {
       "name": "Score",
-      "description": "分数上报相关接口（多指标支持）",
+      "description": "分数上报相关接口。服务端根据上报的metricId集合自动关联排行榜计划，payload在指标+分数层级。",
       "item": [
         {
           "name": "单次分数上报",
@@ -22,14 +22,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"secretKey\": \"{{secretKey}}\",\n  \"leaderboardId\": {{leaderboardId}},\n  \"userId\": \"user-001\",\n  \"metrics\": [\n    { \"metricId\": 1, \"value\": 95.5 },\n    { \"metricId\": 2, \"value\": 80.0 }\n  ],\n  \"payload\": \"{\\\"level\\\": 10}\"\n}"
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"secretKey\": \"{{secretKey}}\",\n  \"userId\": \"user-001\",\n  \"metrics\": [\n    { \"metricId\": 1, \"value\": 95.5, \"payload\": \"{\\\"proof\\\": \\\"headshot\\\"}\" },\n    { \"metricId\": 2, \"value\": 80.0 }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/score/submit",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "score", "submit"]
             },
-            "description": "上报单个用户的多指标分数。\n请求体:\n- tenantId (必填)\n- secretKey (必填)\n- leaderboardId (必填)\n- userId (必填)\n- metrics (必填): [{metricId, value}]\n- payload (可选)\n错误: 401=鉴权失败, 400=排行榜不存在/未开始/无活跃实例/不允许重复上报"
+            "description": "上报单个用户的多指标分数，服务端根据指标集合自动关联排行榜计划。\n请求体:\n- tenantId (必填)\n- secretKey (必填)\n- userId (必填)\n- metrics (必填): [{metricId, value, payload?}]\npayload在指标+分数层级，每个metric可独立携带。\n错误: 401=鉴权失败, 400=排行榜不存在/未开始/无活跃实例/不允许重复上报"
           },
           "response": []
         },
@@ -40,14 +40,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"secretKey\": \"{{secretKey}}\",\n  \"leaderboardId\": {{leaderboardId}},\n  \"scores\": [\n    {\n      \"userId\": \"user-001\",\n      \"metrics\": [\n        { \"metricId\": 1, \"value\": 100 },\n        { \"metricId\": 2, \"value\": 50 }\n      ],\n      \"payload\": \"{\\\"round\\\": 1}\"\n    },\n    {\n      \"userId\": \"user-002\",\n      \"metrics\": [\n        { \"metricId\": 1, \"value\": 85.5 }\n      ]\n    }\n  ]\n}"
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"secretKey\": \"{{secretKey}}\",\n  \"scores\": [\n    {\n      \"userId\": \"user-001\",\n      \"metrics\": [\n        { \"metricId\": 1, \"value\": 100, \"payload\": \"{\\\"detail\\\": \\\"round3\\\"}\" },\n        { \"metricId\": 2, \"value\": 50 }\n      ]\n    },\n    {\n      \"userId\": \"user-002\",\n      \"metrics\": [\n        { \"metricId\": 1, \"value\": 85.5 }\n      ]\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/score/batch-submit",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "score", "batch-submit"]
             },
-            "description": "批量上报多个用户的多指标分数。\n限制: 单次最多1000条\nscores中每项必须包含userId和metrics"
+            "description": "批量上报多个用户的多指标分数，服务端自动关联排行榜计划。\n限制: 单次最多1000条，所有条目指标集合必须一致。\nscores中每项必须包含userId和metrics，payload在metric层级。"
           },
           "response": []
         }

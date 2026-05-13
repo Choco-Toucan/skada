@@ -10,4 +10,6 @@ import java.util.List;
 public interface LeaderboardMetricMapper {
 
     List<LeaderboardMetric> findByLeaderboardId(@Param("leaderboardId") Long leaderboardId);
+
+    List<LeaderboardMetric> findByMetricIds(@Param("metricIds") List<Long> metricIds);
 }
