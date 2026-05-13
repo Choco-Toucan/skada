@@ -119,6 +119,6 @@ CREATE TABLE IF NOT EXISTS score_record (
 -- 密码: admin123 (BCrypt hash)
 -- ------------------------------------------------------------
 INSERT INTO admin_user (username, password_hash, display_id, role, create_by, update_by)
-VALUES ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+VALUES ('admin', '$2a$10$.S6A4B45AcyZ5PVVEJOILu02rcDLeUc5Tb1efvrUB4mdeWDjFRfia',
         'ad_00000001', 'admin', 'system', 'system')
 ON DUPLICATE KEY UPDATE username = username;

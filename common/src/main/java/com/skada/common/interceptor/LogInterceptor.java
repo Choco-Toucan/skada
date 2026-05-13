@@ -6,6 +6,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 
 /**
  * 接口日志拦截器
@@ -42,16 +44,48 @@ public class LogInterceptor implements HandlerInterceptor {
         String uri = request.getRequestURI();
         int status = response.getStatus();
 
-        // 请求参数：GET取query string，POST暂记录content type
+        // 请求参数
         String params;
         if ("GET".equalsIgnoreCase(method)) {
             params = request.getQueryString();
         } else {
-            params = "[body]";
+            params = getRequestBody(request);
         }
 
-        API_LOG.info("{} {} -> {} ({}ms) params={}", method, uri, status, cost, params);
+        // 响应体
+        String responseBody = getResponseBody(response);
+
+        API_LOG.info("{} {} -> {} ({}ms) params={} response={}", method, uri, status, cost, params, responseBody);
 
         START_TIME.remove();
+    }
+
+    private String getRequestBody(HttpServletRequest request) {
+        if (request instanceof ContentCachingRequestWrapper wrapper) {
+            byte[] content = wrapper.getContentAsByteArray();
+            if (content.length > 0) {
+                String body = new String(content, java.nio.charset.StandardCharsets.UTF_8);
+                // 截断过长body，最大4096字符
+                if (body.length() > 4096) {
+                    body = body.substring(0, 4096) + "...[truncated]";
+                }
+                return body;
+            }
+        }
+        return "[no body]";
+    }
+
+    private String getResponseBody(HttpServletResponse response) {
+        if (response instanceof ContentCachingResponseWrapper wrapper) {
+            byte[] content = wrapper.getContentAsByteArray();
+            if (content.length > 0) {
+                String body = new String(content, java.nio.charset.StandardCharsets.UTF_8);
+                if (body.length() > 4096) {
+                    body = body.substring(0, 4096) + "...[truncated]";
+                }
+                return body;
+            }
+        }
+        return "[no body]";
     }
 }
