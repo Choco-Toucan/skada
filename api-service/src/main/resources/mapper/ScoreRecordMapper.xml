@@ -7,7 +7,8 @@
         <id column="id" property="id"/>
         <result column="tenant_id" property="tenantId"/>
         <result column="leaderboard_id" property="leaderboardId"/>
-        <result column="cycle_id" property="cycleId"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="metric_id" property="metricId"/>
         <result column="user_id" property="userId"/>
         <result column="score" property="score"/>
         <result column="payload" property="payload"/>
@@ -16,39 +17,39 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO score_record (tenant_id, leaderboard_id, cycle_id, user_id, score, payload)
-        VALUES (#{tenantId}, #{leaderboardId}, #{cycleId}, #{userId}, #{score}, #{payload})
+        INSERT INTO score_record (tenant_id, leaderboard_id, instance_id, metric_id, user_id, score, payload)
+        VALUES (#{tenantId}, #{leaderboardId}, #{instanceId}, #{metricId}, #{userId}, #{score}, #{payload})
     </insert>
 
     <insert id="insertBatch" parameterType="list">
-        INSERT INTO score_record (tenant_id, leaderboard_id, cycle_id, user_id, score, payload)
+        INSERT INTO score_record (tenant_id, leaderboard_id, instance_id, metric_id, user_id, score, payload)
         VALUES
         <foreach collection="list" item="r" separator=",">
-            (#{r.tenantId}, #{r.leaderboardId}, #{r.cycleId}, #{r.userId}, #{r.score}, #{r.payload})
+            (#{r.tenantId}, #{r.leaderboardId}, #{r.instanceId}, #{r.metricId}, #{r.userId}, #{r.score}, #{r.payload})
         </foreach>
     </insert>
 
     <select id="findRanking" resultMap="BaseMap">
         SELECT * FROM score_record
-        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId}
+        WHERE leaderboard_id = #{leaderboardId} AND instance_id = #{instanceId}
         ORDER BY score ${sortOrder}
         LIMIT #{limit}
     </select>
 
-    <select id="findByUserAndCycle" resultMap="BaseMap">
+    <select id="findByUserAndInstance" resultMap="BaseMap">
         SELECT * FROM score_record
-        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId} AND user_id = #{userId}
+        WHERE leaderboard_id = #{leaderboardId} AND instance_id = #{instanceId} AND user_id = #{userId}
         LIMIT 1
     </select>
 
-    <select id="countByCycle" resultType="int">
+    <select id="countByInstance" resultType="int">
         SELECT COUNT(*) FROM score_record
-        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId}
+        WHERE leaderboard_id = #{leaderboardId} AND instance_id = #{instanceId}
     </select>
 
-    <select id="countDistinctUsersByCycle" resultType="int">
+    <select id="countDistinctUsersByInstance" resultType="int">
         SELECT COUNT(DISTINCT user_id) FROM score_record
-        WHERE leaderboard_id = #{leaderboardId} AND cycle_id = #{cycleId}
+        WHERE leaderboard_id = #{leaderboardId} AND instance_id = #{instanceId}
     </select>
 
 </mapper>

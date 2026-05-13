@@ -1,70 +1,65 @@
 package com.skada.api.service;
 
-import com.skada.api.mapper.LeaderboardCycleMapper;
-import com.skada.api.mapper.LeaderboardMapper;
-import com.skada.api.mapper.ScoreRecordMapper;
-import com.skada.api.mapper.TenantMapper;
-import com.skada.api.model.Leaderboard;
-import com.skada.api.model.LeaderboardCycle;
-import com.skada.api.model.ScoreRecord;
-import com.skada.api.model.Tenant;
+import com.skada.api.mapper.*;
+import com.skada.api.model.*;
 import com.skada.common.exception.BusinessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 排行榜查询服务
- * 优先从Redis ZSET读取，降级到MySQL
+ * 支持多指标排序：按指标优先级依次比较，每个指标独立ZSET缓存
  */
 @Service
 public class LeaderboardQueryService {
 
-    private static final String RANKING_KEY_PREFIX = "skada:leaderboard:%d:cycle:%d";
-    private static final long CACHE_TTL_SECONDS = 600; // 10分钟
+    private static final String RANKING_KEY_PREFIX = "skada:metric:%d:%d:%d";
+    private static final long CACHE_TTL_SECONDS = 600;
 
     private final LeaderboardMapper leaderboardMapper;
-    private final LeaderboardCycleMapper cycleMapper;
+    private final LeaderboardInstanceMapper instanceMapper;
+    private final LeaderboardMetricMapper leaderboardMetricMapper;
+    private final MetricMapper metricMapper;
     private final ScoreRecordMapper scoreRecordMapper;
     private final TenantMapper tenantMapper;
     private final StringRedisTemplate redisTemplate;
 
     public LeaderboardQueryService(LeaderboardMapper leaderboardMapper,
-                                   LeaderboardCycleMapper cycleMapper,
+                                   LeaderboardInstanceMapper instanceMapper,
+                                   LeaderboardMetricMapper leaderboardMetricMapper,
+                                   MetricMapper metricMapper,
                                    ScoreRecordMapper scoreRecordMapper,
                                    TenantMapper tenantMapper,
                                    StringRedisTemplate redisTemplate) {
         this.leaderboardMapper = leaderboardMapper;
-        this.cycleMapper = cycleMapper;
+        this.instanceMapper = instanceMapper;
+        this.leaderboardMetricMapper = leaderboardMetricMapper;
+        this.metricMapper = metricMapper;
         this.scoreRecordMapper = scoreRecordMapper;
         this.tenantMapper = tenantMapper;
         this.redisTemplate = redisTemplate;
     }
 
     /**
-     * 查询排行榜排名
-     * @param tenantId 租户ID（可选，仅当租户不允许匿名查询时必填）
-     * @param secretKey 租户密钥（可选，仅当租户不允许匿名查询时必填）
+     * 查询排行榜排名（多指标）
      */
-    public List<RankEntry> getRanking(Long leaderboardId, Long cycleId, int limit,
+    public List<RankEntry> getRanking(Long leaderboardId, Long instanceId, int limit,
                                        String tenantId, String secretKey) {
         Leaderboard lb = leaderboardMapper.findById(leaderboardId);
         if (lb == null) {
-            throw new BusinessException("排行榜不存在");
+            throw new BusinessException("排行榜计划不存在");
         }
 
-        // 租户查询鉴权：检查是否允许匿名查询
+        // 租户鉴权
         Tenant tenant = tenantMapper.findByTenantId(lb.getTenantId());
         if (tenant == null || tenant.getStatus() != 1) {
             throw new BusinessException("租户不存在或已停用");
         }
         if (tenant.getAllowAnonymousQuery() == 0) {
-            // 不允许匿名查询，必须提供有效凭证
             if (tenantId == null || secretKey == null) {
                 throw new BusinessException(401, "该排行榜不允许匿名查询，请提供租户凭证");
             }
@@ -73,88 +68,201 @@ public class LeaderboardQueryService {
             }
         }
 
-        if (cycleId == null) {
-            LeaderboardCycle active = cycleMapper.findActiveByLeaderboardId(leaderboardId);
+        if (instanceId == null) {
+            LeaderboardInstance active = instanceMapper.findActiveByLeaderboardId(leaderboardId);
             if (active == null) {
-                throw new BusinessException("当前没有活跃周期");
+                throw new BusinessException("当前没有活跃实例");
             }
-            cycleId = active.getId();
+            instanceId = active.getId();
         }
 
+        // 获取排行榜关联的指标（按优先级排序）
+        List<LeaderboardMetric> lbMetrics = leaderboardMetricMapper.findByLeaderboardId(leaderboardId);
+        if (lbMetrics.isEmpty()) {
+            throw new BusinessException("排行榜计划未关联指标");
+        }
+        lbMetrics.sort(Comparator.comparingInt(LeaderboardMetric::getPriority));
+
+        // 加载指标名称
+        List<Long> metricIds = lbMetrics.stream().map(LeaderboardMetric::getMetricId).toList();
+        List<Metric> metrics = metricMapper.findByIds(metricIds);
+        Map<Long, String> metricNames = new HashMap<>();
+        for (Metric m : metrics) {
+            metricNames.put(m.getId(), m.getName());
+        }
+
+        // 主指标（最高优先级）用于排序
+        LeaderboardMetric primaryMetric = lbMetrics.get(0);
         int queryLimit = Math.min(limit, lb.getMaxQueryUsers());
-        String rankingKey = String.format(RANKING_KEY_PREFIX, leaderboardId, cycleId);
+        String primaryKey = String.format(RANKING_KEY_PREFIX, leaderboardId, instanceId, primaryMetric.getMetricId());
 
-        // 安全校验排序方向，仅允许 asc/desc，防止 SQL 注入
-        String sortOrder = "asc".equals(lb.getSortOrder()) ? "ASC" : "DESC";
-
-        // 优先从Redis读取
+        // 从Redis读取主指标排名
         Set<ZSetOperations.TypedTuple<String>> redisResult;
-        if ("asc".equals(lb.getSortOrder())) {
-            redisResult = redisTemplate.opsForZSet()
-                    .rangeWithScores(rankingKey, 0, queryLimit - 1);
+        if ("asc".equals(primaryMetric.getSortOrder())) {
+            redisResult = redisTemplate.opsForZSet().rangeWithScores(primaryKey, 0, queryLimit - 1);
         } else {
-            redisResult = redisTemplate.opsForZSet()
-                    .reverseRangeWithScores(rankingKey, 0, queryLimit - 1);
+            redisResult = redisTemplate.opsForZSet().reverseRangeWithScores(primaryKey, 0, queryLimit - 1);
         }
 
         if (redisResult != null && !redisResult.isEmpty()) {
-            List<RankEntry> result = new ArrayList<>();
-            int rank = 1;
-            for (ZSetOperations.TypedTuple<String> tuple : redisResult) {
-                result.add(new RankEntry(rank++, tuple.getValue(),
-                        BigDecimal.valueOf(tuple.getScore() != null ? tuple.getScore() : 0)));
-            }
-            return result;
+            return buildRankEntries(redisResult, leaderboardId, instanceId,
+                    lbMetrics, metricNames, primaryMetric.getSortOrder());
         }
 
-        // Redis无数据，从MySQL读取（兜底），sortOrder已在Java层校验为 ASC/DESC
+        // Redis无数据，从MySQL兜底
+        String sortOrder = "asc".equals(primaryMetric.getSortOrder()) ? "ASC" : "DESC";
         List<ScoreRecord> dbRecords = scoreRecordMapper.findRanking(
-                leaderboardId, cycleId, sortOrder, queryLimit);
+                leaderboardId, instanceId, sortOrder, queryLimit);
 
-        // 将MySQL数据回填Redis
+        // 回填Redis
         if (!dbRecords.isEmpty()) {
+            Map<Long, Map<String, Double>> metricScores = new HashMap<>();
             for (ScoreRecord r : dbRecords) {
-                redisTemplate.opsForZSet()
-                        .add(rankingKey, r.getUserId(), r.getScore().doubleValue());
+                String key = String.format(RANKING_KEY_PREFIX, leaderboardId, instanceId, r.getMetricId());
+                metricScores.computeIfAbsent(r.getMetricId(), k -> new HashMap<>())
+                        .put(r.getUserId(), r.getScore().doubleValue());
             }
-            redisTemplate.expire(rankingKey, java.time.Duration.ofSeconds(CACHE_TTL_SECONDS));
+            for (var entry : metricScores.entrySet()) {
+                String key = String.format(RANKING_KEY_PREFIX, leaderboardId, instanceId, entry.getKey());
+                for (var ue : entry.getValue().entrySet()) {
+                    redisTemplate.opsForZSet().add(key, ue.getKey(), ue.getValue());
+                }
+                redisTemplate.expire(key, java.time.Duration.ofSeconds(CACHE_TTL_SECONDS));
+            }
+        }
+
+        return buildRankEntriesFromDb(dbRecords, lbMetrics, metricNames);
+    }
+
+    /**
+     * 查询排行榜计划的所有实例
+     */
+    public List<LeaderboardInstance> getInstances(Long leaderboardId) {
+        Leaderboard lb = leaderboardMapper.findById(leaderboardId);
+        if (lb == null) {
+            throw new BusinessException("排行榜计划不存在");
+        }
+        return instanceMapper.findByLeaderboardId(leaderboardId);
+    }
+
+    private List<RankEntry> buildRankEntries(Set<ZSetOperations.TypedTuple<String>> redisResult,
+                                              Long leaderboardId, Long instanceId,
+                                              List<LeaderboardMetric> lbMetrics,
+                                              Map<Long, String> metricNames,
+                                              String primarySortOrder) {
+        List<UserScore> userScores = new ArrayList<>();
+        for (var tuple : redisResult) {
+            String userId = tuple.getValue();
+            double primaryScore = tuple.getScore() != null ? tuple.getScore() : 0;
+            userScores.add(new UserScore(userId, primaryScore));
+        }
+
+        // 加载其他指标的值用于返回
+        for (int i = 1; i < lbMetrics.size(); i++) {
+            LeaderboardMetric lm = lbMetrics.get(i);
+            String key = String.format(RANKING_KEY_PREFIX, leaderboardId, instanceId, lm.getMetricId());
+            for (var us : userScores) {
+                Double val = redisTemplate.opsForZSet().score(key, us.userId);
+                us.metricValues.put(lm.getMetricId(), val != null ? BigDecimal.valueOf(val) : BigDecimal.ZERO);
+            }
         }
 
         List<RankEntry> result = new ArrayList<>();
         int rank = 1;
-        for (ScoreRecord r : dbRecords) {
-            result.add(new RankEntry(rank++, r.getUserId(), r.getScore()));
+        for (var us : userScores) {
+            RankEntry entry = new RankEntry();
+            entry.setRank(rank++);
+            entry.setUserId(us.userId);
+
+            List<MetricValueEntry> metricValues = new ArrayList<>();
+            // 主指标值
+            MetricValueEntry primary = new MetricValueEntry();
+            primary.setMetricId(lbMetrics.get(0).getMetricId());
+            primary.setMetricName(metricNames.get(lbMetrics.get(0).getMetricId()));
+            primary.setValue(BigDecimal.valueOf(us.primaryScore));
+            metricValues.add(primary);
+            // 其他指标值
+            for (int i = 1; i < lbMetrics.size(); i++) {
+                Long mid = lbMetrics.get(i).getMetricId();
+                MetricValueEntry mve = new MetricValueEntry();
+                mve.setMetricId(mid);
+                mve.setMetricName(metricNames.get(mid));
+                mve.setValue(us.metricValues.getOrDefault(mid, BigDecimal.ZERO));
+                metricValues.add(mve);
+            }
+            entry.setMetricValues(metricValues);
+            result.add(entry);
         }
         return result;
     }
 
-    /**
-     * 查询排行榜的所有周期（含历史周期）
-     */
-    public List<LeaderboardCycle> getCycles(Long leaderboardId) {
-        Leaderboard lb = leaderboardMapper.findById(leaderboardId);
-        if (lb == null) {
-            throw new BusinessException("排行榜不存在");
+    private List<RankEntry> buildRankEntriesFromDb(List<ScoreRecord> dbRecords,
+                                                    List<LeaderboardMetric> lbMetrics,
+                                                    Map<Long, String> metricNames) {
+        // 按userId聚合
+        Map<String, Map<Long, BigDecimal>> userMetricMap = new LinkedHashMap<>();
+        for (ScoreRecord r : dbRecords) {
+            userMetricMap.computeIfAbsent(r.getUserId(), k -> new HashMap<>())
+                    .put(r.getMetricId(), r.getScore());
         }
-        return cycleMapper.findByLeaderboardId(leaderboardId);
+
+        List<RankEntry> result = new ArrayList<>();
+        int rank = 1;
+        for (var entry : userMetricMap.entrySet()) {
+            RankEntry re = new RankEntry();
+            re.setRank(rank++);
+            re.setUserId(entry.getKey());
+            List<MetricValueEntry> values = new ArrayList<>();
+            for (LeaderboardMetric lm : lbMetrics) {
+                MetricValueEntry mve = new MetricValueEntry();
+                mve.setMetricId(lm.getMetricId());
+                mve.setMetricName(metricNames.get(lm.getMetricId()));
+                mve.setValue(entry.getValue().getOrDefault(lm.getMetricId(), BigDecimal.ZERO));
+                values.add(mve);
+            }
+            re.setMetricValues(values);
+            result.add(re);
+        }
+        return result;
+    }
+
+    private static class UserScore {
+        final String userId;
+        final double primaryScore;
+        final Map<Long, BigDecimal> metricValues = new HashMap<>();
+
+        UserScore(String userId, double primaryScore) {
+            this.userId = userId;
+            this.primaryScore = primaryScore;
+        }
     }
 
     /**
-     * 排名条目
+     * 排名条目（多指标）
      */
     public static class RankEntry {
         private int rank;
         private String userId;
-        private BigDecimal score;
-
-        public RankEntry(int rank, String userId, BigDecimal score) {
-            this.rank = rank;
-            this.userId = userId;
-            this.score = score;
-        }
+        private List<MetricValueEntry> metricValues;
 
         public int getRank() { return rank; }
+        public void setRank(int rank) { this.rank = rank; }
         public String getUserId() { return userId; }
-        public BigDecimal getScore() { return score; }
+        public void setUserId(String userId) { this.userId = userId; }
+        public List<MetricValueEntry> getMetricValues() { return metricValues; }
+        public void setMetricValues(List<MetricValueEntry> metricValues) { this.metricValues = metricValues; }
+    }
+
+    public static class MetricValueEntry {
+        private Long metricId;
+        private String metricName;
+        private BigDecimal value;
+
+        public Long getMetricId() { return metricId; }
+        public void setMetricId(Long metricId) { this.metricId = metricId; }
+        public String getMetricName() { return metricName; }
+        public void setMetricName(String metricName) { this.metricName = metricName; }
+        public BigDecimal getValue() { return value; }
+        public void setValue(BigDecimal value) { this.value = value; }
     }
 }

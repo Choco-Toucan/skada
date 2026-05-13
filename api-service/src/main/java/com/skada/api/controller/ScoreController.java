@@ -1,14 +1,11 @@
 package com.skada.api.controller;
 
-import com.skada.api.model.ScoreRecord;
 import com.skada.api.service.ScoreService;
 import com.skada.common.model.BaseResponse;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -27,57 +24,34 @@ public class ScoreController {
 
     /**
      * 单条分数上报
+     * 请求体: {tenantId, secretKey, leaderboardId, userId, metrics: [{metricId, value}], payload}
      */
     @PostMapping("/submit")
-    public BaseResponse<ScoreRecord> submit(@RequestBody Map<String, Object> body) {
-        String tenantId = (String) body.get("tenantId");
-        String secretKey = (String) body.get("secretKey");
-        Long leaderboardId = body.get("leaderboardId") != null
-                ? ((Number) body.get("leaderboardId")).longValue() : null;
-        String userId = (String) body.get("userId");
-        BigDecimal score = body.get("score") != null
-                ? new BigDecimal(body.get("score").toString()) : null;
+    public BaseResponse<Void> submit(@RequestBody Map<String, Object> body) {
+        String tenantId = requireString(body, "tenantId");
+        String secretKey = requireString(body, "secretKey");
+        Long leaderboardId = requireLong(body, "leaderboardId");
+        String userId = requireString(body, "userId");
         String payload = (String) body.get("payload");
 
-        if (tenantId == null || tenantId.isEmpty()) {
-            throw new IllegalArgumentException("tenantId 不能为空");
-        }
-        if (secretKey == null || secretKey.isEmpty()) {
-            throw new IllegalArgumentException("secretKey 不能为空");
-        }
-        if (leaderboardId == null) {
-            throw new IllegalArgumentException("leaderboardId 不能为空");
-        }
-        if (userId == null || userId.isEmpty()) {
-            throw new IllegalArgumentException("userId 不能为空");
-        }
-        if (score == null) {
-            throw new IllegalArgumentException("score 不能为空");
+        List<ScoreService.MetricValue> metrics = parseMetrics(body);
+        if (metrics.isEmpty()) {
+            throw new IllegalArgumentException("metrics 不能为空");
         }
 
-        ScoreRecord record = scoreService.submit(tenantId, secretKey, leaderboardId, userId, score, payload);
-        return BaseResponse.success(record);
+        scoreService.submit(tenantId, secretKey, leaderboardId, userId, metrics, payload);
+        return BaseResponse.success();
     }
 
     /**
      * 批量分数上报（同一排行榜）
+     * 请求体: {tenantId, secretKey, leaderboardId, scores: [{userId, metrics: [{metricId, value}], payload}]}
      */
     @PostMapping("/batch-submit")
     public BaseResponse<Void> batchSubmit(@RequestBody Map<String, Object> body) {
-        String tenantId = (String) body.get("tenantId");
-        String secretKey = (String) body.get("secretKey");
-        Long leaderboardId = body.get("leaderboardId") != null
-                ? ((Number) body.get("leaderboardId")).longValue() : null;
-
-        if (tenantId == null || tenantId.isEmpty()) {
-            throw new IllegalArgumentException("tenantId 不能为空");
-        }
-        if (secretKey == null || secretKey.isEmpty()) {
-            throw new IllegalArgumentException("secretKey 不能为空");
-        }
-        if (leaderboardId == null) {
-            throw new IllegalArgumentException("leaderboardId 不能为空");
-        }
+        String tenantId = requireString(body, "tenantId");
+        String secretKey = requireString(body, "secretKey");
+        Long leaderboardId = requireLong(body, "leaderboardId");
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> scores = (List<Map<String, Object>>) body.get("scores");
@@ -85,18 +59,65 @@ public class ScoreController {
             throw new IllegalArgumentException("scores 不能为空");
         }
 
-        List<ScoreService.ScoreSubmitItem> items = scores.stream().map(m -> {
-            ScoreService.ScoreSubmitItem item = new ScoreService.ScoreSubmitItem();
-            item.setUserId((String) m.get("userId"));
-            item.setScore(m.get("score") != null ? new BigDecimal(m.get("score").toString()) : null);
-            item.setPayload((String) m.get("payload"));
-            if (item.getUserId() == null || item.getScore() == null) {
-                throw new IllegalArgumentException("scores 中每条数据必须包含 userId 和 score");
+        List<ScoreService.BatchSubmitItem> items = new ArrayList<>();
+        for (Map<String, Object> m : scores) {
+            ScoreService.BatchSubmitItem item = new ScoreService.BatchSubmitItem();
+            String uid = (String) m.get("userId");
+            if (uid == null || uid.isBlank()) {
+                throw new IllegalArgumentException("scores 中每条数据必须包含 userId");
             }
-            return item;
-        }).toList();
+            item.setUserId(uid);
+
+            List<ScoreService.MetricValue> metrics = parseMetricsFromMap(m);
+            if (metrics.isEmpty()) {
+                throw new IllegalArgumentException("scores 中每条数据必须包含 metrics");
+            }
+            item.setMetrics(metrics);
+            item.setPayload((String) m.get("payload"));
+            items.add(item);
+        }
 
         scoreService.batchSubmit(tenantId, secretKey, leaderboardId, items);
         return BaseResponse.success();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ScoreService.MetricValue> parseMetrics(Map<String, Object> body) {
+        return parseMetricsFromMap(body);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ScoreService.MetricValue> parseMetricsFromMap(Map<String, Object> map) {
+        List<Map<String, Object>> raw = (List<Map<String, Object>>) map.get("metrics");
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<ScoreService.MetricValue> result = new ArrayList<>();
+        for (Map<String, Object> m : raw) {
+            ScoreService.MetricValue mv = new ScoreService.MetricValue();
+            mv.setMetricId(m.get("metricId") != null ? ((Number) m.get("metricId")).longValue() : null);
+            mv.setValue(m.get("value") != null ? new BigDecimal(m.get("value").toString()) : null);
+            if (mv.getMetricId() == null || mv.getValue() == null) {
+                throw new IllegalArgumentException("metrics 中每条数据必须包含 metricId 和 value");
+            }
+            result.add(mv);
+        }
+        return result;
+    }
+
+    private String requireString(Map<String, Object> body, String key) {
+        String val = (String) body.get(key);
+        if (val == null || val.isBlank()) {
+            throw new IllegalArgumentException(key + " 不能为空");
+        }
+        return val;
+    }
+
+    private Long requireLong(Map<String, Object> body, String key) {
+        Object val = body.get(key);
+        if (val == null) {
+            throw new IllegalArgumentException(key + " 不能为空");
+        }
+        return ((Number) val).longValue();
     }
 }

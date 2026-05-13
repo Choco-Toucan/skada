@@ -1,6 +1,6 @@
 package com.skada.api.controller;
 
-import com.skada.api.model.LeaderboardCycle;
+import com.skada.api.model.LeaderboardInstance;
 import com.skada.api.service.LeaderboardQueryService;
 import com.skada.common.model.BaseResponse;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,30 +24,30 @@ public class LeaderboardController {
     }
 
     /**
-     * 查询排行榜排名
-     * @param leaderboardId 排行榜ID
-     * @param cycleId 周期ID（可选，默认当前活跃周期）
-     * @param limit 返回条数（可选，默认100，不超过排行榜配置的maxQueryUsers）
+     * 查询排行榜排名（多指标）
+     * @param leaderboardId 排行榜计划ID
+     * @param instanceId 实例ID（可选，默认当前活跃实例）
+     * @param limit 返回条数（可选，默认100）
      * @param tenantId 租户ID（可选，仅当租户不允许匿名查询时必填）
      * @param secretKey 租户密钥（可选，仅当租户不允许匿名查询时必填）
      */
     @GetMapping("/ranking")
     public BaseResponse<List<LeaderboardQueryService.RankEntry>> getRanking(
             @RequestParam Long leaderboardId,
-            @RequestParam(required = false) Long cycleId,
+            @RequestParam(required = false) Long instanceId,
             @RequestParam(defaultValue = "100") int limit,
             @RequestParam(required = false) String tenantId,
             @RequestParam(required = false) String secretKey) {
         List<LeaderboardQueryService.RankEntry> ranking =
-                queryService.getRanking(leaderboardId, cycleId, limit, tenantId, secretKey);
+                queryService.getRanking(leaderboardId, instanceId, limit, tenantId, secretKey);
         return BaseResponse.success(ranking);
     }
 
     /**
-     * 查询排行榜的所有周期列表（含历史）
+     * 查询排行榜计划的所有实例列表（含历史）
      */
-    @GetMapping("/cycles")
-    public BaseResponse<List<LeaderboardCycle>> getCycles(@RequestParam Long leaderboardId) {
-        return BaseResponse.success(queryService.getCycles(leaderboardId));
+    @GetMapping("/instances")
+    public BaseResponse<List<LeaderboardInstance>> getInstances(@RequestParam Long leaderboardId) {
+        return BaseResponse.success(queryService.getInstances(leaderboardId));
     }
 }

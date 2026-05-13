@@ -1,7 +1,7 @@
 package com.skada.mng.model;
 
 /**
- * 排行榜配置实体
+ * 排行榜计划实体
  */
 public class Leaderboard {
 
@@ -10,7 +10,6 @@ public class Leaderboard {
     private String name;
     private Long startTime;
     private Long endTime;
-    private String sortOrder;
     private Integer maxQueryUsers;
     private Integer allowDuplicateReport;
     private Integer allowHistoryQuery;
@@ -19,7 +18,7 @@ public class Leaderboard {
     private String rollIntervalUnit;
     private Integer rollUserCount;
     private String status;
-    private Long currentCycleId;
+    private Long currentInstanceId;
     private String createTime;
     private String updateTime;
     private String createBy;
@@ -35,8 +34,6 @@ public class Leaderboard {
     public void setStartTime(Long startTime) { this.startTime = startTime; }
     public Long getEndTime() { return endTime; }
     public void setEndTime(Long endTime) { this.endTime = endTime; }
-    public String getSortOrder() { return sortOrder; }
-    public void setSortOrder(String sortOrder) { this.sortOrder = sortOrder; }
     public Integer getMaxQueryUsers() { return maxQueryUsers; }
     public void setMaxQueryUsers(Integer maxQueryUsers) { this.maxQueryUsers = maxQueryUsers; }
     public Integer getAllowDuplicateReport() { return allowDuplicateReport; }
@@ -53,8 +50,8 @@ public class Leaderboard {
     public void setRollUserCount(Integer rollUserCount) { this.rollUserCount = rollUserCount; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public Long getCurrentCycleId() { return currentCycleId; }
-    public void setCurrentCycleId(Long currentCycleId) { this.currentCycleId = currentCycleId; }
+    public Long getCurrentInstanceId() { return currentInstanceId; }
+    public void setCurrentInstanceId(Long currentInstanceId) { this.currentInstanceId = currentInstanceId; }
     public String getCreateTime() { return createTime; }
     public void setCreateTime(String createTime) { this.createTime = createTime; }
     public String getUpdateTime() { return updateTime; }

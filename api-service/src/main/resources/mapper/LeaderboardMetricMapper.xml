@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.api.mapper.LeaderboardMetricMapper">
+
+    <resultMap id="BaseMap" type="com.skada.api.model.LeaderboardMetric">
+        <id column="id" property="id"/>
+        <result column="leaderboard_id" property="leaderboardId"/>
+        <result column="metric_id" property="metricId"/>
+        <result column="priority" property="priority"/>
+        <result column="sort_order" property="sortOrder"/>
+    </resultMap>
+
+    <select id="findByLeaderboardId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_metric WHERE leaderboard_id = #{leaderboardId}
+    </select>
+
+</mapper>

@@ -9,25 +9,24 @@
         <result column="name" property="name"/>
         <result column="start_time" property="startTime"/>
         <result column="end_time" property="endTime"/>
-        <result column="sort_order" property="sortOrder"/>
         <result column="max_query_users" property="maxQueryUsers"/>
         <result column="allow_duplicate_report" property="allowDuplicateReport"/>
         <result column="allow_history_query" property="allowHistoryQuery"/>
         <result column="roll_strategy" property="rollStrategy"/>
         <result column="roll_user_count" property="rollUserCount"/>
         <result column="status" property="status"/>
-        <result column="current_cycle_id" property="currentCycleId"/>
+        <result column="current_instance_id" property="currentInstanceId"/>
     </resultMap>
 
     <select id="findById" resultMap="BaseMap">
-        SELECT id, tenant_id, name, start_time, end_time, sort_order, max_query_users,
-               allow_duplicate_report, allow_history_query, roll_strategy, roll_user_count, status, current_cycle_id
-        FROM leaderboard WHERE id = #{id}
+        SELECT id, tenant_id, name, start_time, end_time, max_query_users,
+               allow_duplicate_report, allow_history_query, roll_strategy, roll_user_count, status, current_instance_id
+        FROM leaderboard_plan WHERE id = #{id}
     </select>
 
     <update id="update">
-        UPDATE leaderboard
-        SET current_cycle_id = #{currentCycleId}
+        UPDATE leaderboard_plan
+        SET current_instance_id = #{currentInstanceId}
         WHERE id = #{id}
     </update>
 

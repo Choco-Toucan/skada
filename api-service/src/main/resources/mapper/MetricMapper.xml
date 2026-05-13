@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.api.mapper.MetricMapper">
+
+    <resultMap id="BaseMap" type="com.skada.api.model.Metric">
+        <id column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="name" property="name"/>
+        <result column="code" property="code"/>
+        <result column="description" property="description"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseMap">
+        SELECT * FROM metric WHERE id = #{id}
+    </select>
+
+    <select id="findByTenantId" resultMap="BaseMap">
+        SELECT * FROM metric WHERE tenant_id = #{tenantId}
+    </select>
+
+    <select id="findByIds" resultMap="BaseMap">
+        SELECT * FROM metric WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+</mapper>

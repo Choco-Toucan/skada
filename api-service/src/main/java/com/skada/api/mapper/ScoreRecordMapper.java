@@ -14,17 +14,17 @@ public interface ScoreRecordMapper {
     int insertBatch(List<ScoreRecord> records);
 
     List<ScoreRecord> findRanking(@Param("leaderboardId") Long leaderboardId,
-                                  @Param("cycleId") Long cycleId,
+                                  @Param("instanceId") Long instanceId,
                                   @Param("sortOrder") String sortOrder,
                                   @Param("limit") int limit);
 
-    ScoreRecord findByUserAndCycle(@Param("leaderboardId") Long leaderboardId,
-                                   @Param("cycleId") Long cycleId,
-                                   @Param("userId") String userId);
+    ScoreRecord findByUserAndInstance(@Param("leaderboardId") Long leaderboardId,
+                                      @Param("instanceId") Long instanceId,
+                                      @Param("userId") String userId);
 
-    int countByCycle(@Param("leaderboardId") Long leaderboardId,
-                     @Param("cycleId") Long cycleId);
+    int countByInstance(@Param("leaderboardId") Long leaderboardId,
+                        @Param("instanceId") Long instanceId);
 
-    int countDistinctUsersByCycle(@Param("leaderboardId") Long leaderboardId,
-                                  @Param("cycleId") Long cycleId);
+    int countDistinctUsersByInstance(@Param("leaderboardId") Long leaderboardId,
+                                     @Param("instanceId") Long instanceId);
 }

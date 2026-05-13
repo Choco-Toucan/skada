@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.api.mapper.LeaderboardInstanceMapper">
+
+    <resultMap id="BaseMap" type="com.skada.api.model.LeaderboardInstance">
+        <id column="id" property="id"/>
+        <result column="leaderboard_id" property="leaderboardId"/>
+        <result column="instance_seq" property="instanceSeq"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="status" property="status"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO leaderboard_instance (leaderboard_id, instance_seq, start_time, end_time, status, create_by, update_by)
+        VALUES (#{leaderboardId}, #{instanceSeq}, #{startTime}, #{endTime}, #{status}, #{createBy}, #{updateBy})
+    </insert>
+
+    <select id="findActiveByLeaderboardId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_instance
+        WHERE leaderboard_id = #{leaderboardId} AND status = 'active'
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="BaseMap">
+        SELECT * FROM leaderboard_instance WHERE id = #{id}
+    </select>
+
+    <update id="closeInstance">
+        UPDATE leaderboard_instance
+        SET status = 'closed', end_time = #{endTime}
+        WHERE id = #{id} AND status = 'active'
+    </update>
+
+    <select id="getMaxInstanceSeq" resultType="int">
+        SELECT COALESCE(MAX(instance_seq), 0) FROM leaderboard_instance WHERE leaderboard_id = #{leaderboardId}
+    </select>
+
+    <select id="findByLeaderboardId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_instance
+        WHERE leaderboard_id = #{leaderboardId}
+        ORDER BY instance_seq DESC
+    </select>
+
+</mapper>

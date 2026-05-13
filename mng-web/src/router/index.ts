@@ -27,6 +27,11 @@ const router = createRouter({
           component: () => import('@/views/TenantList.vue'),
         },
         {
+          path: 'metrics',
+          name: 'MetricList',
+          component: () => import('@/views/MetricList.vue'),
+        },
+        {
           path: 'leaderboards',
           name: 'LeaderboardList',
           component: () => import('@/views/LeaderboardList.vue'),

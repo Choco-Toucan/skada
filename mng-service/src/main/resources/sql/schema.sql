@@ -48,15 +48,33 @@ CREATE TABLE IF NOT EXISTS tenant (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='租户';
 
 -- ------------------------------------------------------------
--- 排行榜配置表
+-- 指标表 (Metric)
+-- 租户定义的上报维度，如"击杀数"、"得分"、"等级"等
 -- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS leaderboard (
+CREATE TABLE IF NOT EXISTS metric (
+    id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    tenant_id   VARCHAR(32)  NOT NULL COMMENT '所属租户ID',
+    name        VARCHAR(128) NOT NULL COMMENT '指标名称',
+    code        VARCHAR(64)  NOT NULL COMMENT '指标编码(租户内唯一)',
+    description VARCHAR(256) NULL     COMMENT '指标描述',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    create_by   VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '创建人',
+    update_by   VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '更新人',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_tenant_code (tenant_id, code),
+    KEY idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='指标';
+
+-- ------------------------------------------------------------
+-- 排行榜计划表 (Leaderboard Plan)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS leaderboard_plan (
     id                    BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     tenant_id             VARCHAR(32)  NOT NULL COMMENT '所属租户ID',
     name                  VARCHAR(128) NOT NULL COMMENT '排行榜名称',
     start_time            BIGINT       NOT NULL COMMENT '开始时间(毫秒时间戳)',
     end_time              BIGINT       NULL     COMMENT '结束时间(毫秒时间戳，空=永不结束)',
-    sort_order            VARCHAR(8)   NOT NULL DEFAULT 'desc' COMMENT '排序规则: asc=升序, desc=降序',
     max_query_users       INT          NOT NULL DEFAULT 1000 COMMENT '最大可查询用户数',
     allow_duplicate_report TINYINT     NOT NULL DEFAULT 0 COMMENT '是否允许同一用户重复上报: 1=允许, 0=禁止',
     allow_history_query   TINYINT      NOT NULL DEFAULT 1 COMMENT '是否支持查询历史榜单: 1=允许, 0=禁止',
@@ -65,7 +83,7 @@ CREATE TABLE IF NOT EXISTS leaderboard (
     roll_interval_unit    VARCHAR(8)   NULL     COMMENT '周期性滚动-时间单位: minute/hour/day',
     roll_user_count       INT          NULL     COMMENT '用户数滚动-触发阈值',
     status                VARCHAR(16)  NOT NULL DEFAULT 'active' COMMENT '状态: active=进行中, stopped=已终止',
-    current_cycle_id      BIGINT       NULL     COMMENT '当前活跃周期ID',
+    current_instance_id   BIGINT       NULL     COMMENT '当前活跃实例ID',
     create_time           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     create_by             VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '创建人',
@@ -73,17 +91,36 @@ CREATE TABLE IF NOT EXISTS leaderboard (
     PRIMARY KEY (id),
     KEY idx_tenant_id (tenant_id),
     KEY idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜配置';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜计划';
 
 -- ------------------------------------------------------------
--- 排行榜周期表（每次滚动产生一个新周期）
+-- 排行榜关联指标表
+-- 每个排行榜计划关联一个或多个指标，按优先级排序
 -- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS leaderboard_cycle (
+CREATE TABLE IF NOT EXISTS leaderboard_metric (
+    id              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
+    leaderboard_id  BIGINT      NOT NULL COMMENT '排行榜计划ID',
+    metric_id       BIGINT      NOT NULL COMMENT '指标ID',
+    priority        INT         NOT NULL DEFAULT 1 COMMENT '优先级(越小越优先)',
+    sort_order      VARCHAR(8)  NOT NULL DEFAULT 'desc' COMMENT '排序方向: asc=升序, desc=降序',
+    create_time     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_leaderboard_metric (leaderboard_id, metric_id),
+    KEY idx_leaderboard_id (leaderboard_id),
+    KEY idx_metric_id (metric_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜关联指标';
+
+-- ------------------------------------------------------------
+-- 排行榜实例表 (Leaderboard Instance)
+-- 排行榜计划的具体执行实例，每次滚动产生一个新实例
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS leaderboard_instance (
     id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-    leaderboard_id    BIGINT       NOT NULL COMMENT '所属排行榜ID',
-    cycle_seq         INT          NOT NULL COMMENT '周期序号(从1递增)',
-    cycle_start_time  BIGINT       NOT NULL COMMENT '周期开始时间(毫秒时间戳)',
-    cycle_end_time    BIGINT       NULL     COMMENT '周期结束时间(毫秒时间戳)',
+    leaderboard_id    BIGINT       NOT NULL COMMENT '所属排行榜计划ID',
+    instance_seq      INT          NOT NULL COMMENT '实例序号(从1递增)',
+    start_time        BIGINT       NOT NULL COMMENT '实例开始时间(毫秒时间戳)',
+    end_time          BIGINT       NULL     COMMENT '实例结束时间(毫秒时间戳)',
     status            VARCHAR(16)  NOT NULL DEFAULT 'active' COMMENT '状态: active=进行中, closed=已关闭',
     create_time       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -92,24 +129,27 @@ CREATE TABLE IF NOT EXISTS leaderboard_cycle (
     PRIMARY KEY (id),
     KEY idx_leaderboard_id (leaderboard_id),
     KEY idx_leaderboard_status (leaderboard_id, status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜周期';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜实例';
 
 -- ------------------------------------------------------------
--- 分数记录表（玩家分数数据）
+-- 分数记录表（玩家指标数据）
+-- 记录用户在某个排行榜实例中某个指标的值
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS score_record (
     id             BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
     tenant_id      VARCHAR(32)   NOT NULL COMMENT '租户ID',
-    leaderboard_id BIGINT        NOT NULL COMMENT '排行榜ID',
-    cycle_id       BIGINT        NOT NULL COMMENT '周期ID',
+    leaderboard_id BIGINT        NOT NULL COMMENT '排行榜计划ID',
+    instance_id    BIGINT        NOT NULL COMMENT '排行榜实例ID',
+    metric_id      BIGINT        NOT NULL COMMENT '指标ID',
     user_id        VARCHAR(128)  NOT NULL COMMENT '用户ID(由租户定义)',
-    score          DECIMAL(20,4) NOT NULL COMMENT '分数',
+    score          DECIMAL(20,4) NOT NULL COMMENT '指标值',
     payload        TEXT          NULL     COMMENT '透传数据(JSON格式)',
     create_time    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    KEY idx_leaderboard_cycle (leaderboard_id, cycle_id),
-    KEY idx_leaderboard_cycle_score (leaderboard_id, cycle_id, score),
+    KEY idx_leaderboard_instance (leaderboard_id, instance_id),
+    KEY idx_leaderboard_instance_metric (leaderboard_id, instance_id, metric_id),
+    KEY idx_leaderboard_instance_metric_score (leaderboard_id, instance_id, metric_id, score),
     KEY idx_tenant_id (tenant_id),
     KEY idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='分数记录';

@@ -13,6 +13,7 @@
     - 数据库中必须包含create_time和update_time字段，create_time字段为创建时间，update_time字段为更新时间
     - 数据库字符集为utf8mb4_general_ci，排序规则为utf8mb4_general_ci
     - 管理平面的数据库表必须包含create_by和update_by字段，create_by字段为创建人，update_by字段为更新人
+    - 如果是表达关联关系的表，命名上要以_mapping结尾，比如a_b_mapping
 4.禁止在接口中直接抛出异常，必须捕获异常并返回明确的错误信息
 
 

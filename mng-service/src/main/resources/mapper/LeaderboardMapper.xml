@@ -9,7 +9,6 @@
         <result column="name" property="name"/>
         <result column="start_time" property="startTime"/>
         <result column="end_time" property="endTime"/>
-        <result column="sort_order" property="sortOrder"/>
         <result column="max_query_users" property="maxQueryUsers"/>
         <result column="allow_duplicate_report" property="allowDuplicateReport"/>
         <result column="allow_history_query" property="allowHistoryQuery"/>
@@ -18,7 +17,7 @@
         <result column="roll_interval_unit" property="rollIntervalUnit"/>
         <result column="roll_user_count" property="rollUserCount"/>
         <result column="status" property="status"/>
-        <result column="current_cycle_id" property="currentCycleId"/>
+        <result column="current_instance_id" property="currentInstanceId"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
         <result column="create_by" property="createBy"/>
@@ -26,22 +25,21 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard (tenant_id, name, start_time, end_time, sort_order, max_query_users,
+        INSERT INTO leaderboard_plan (tenant_id, name, start_time, end_time, max_query_users,
                                  allow_duplicate_report, allow_history_query, roll_strategy,
                                  roll_interval_value, roll_interval_unit, roll_user_count,
                                  status, create_by, update_by)
-        VALUES (#{tenantId}, #{name}, #{startTime}, #{endTime}, #{sortOrder}, #{maxQueryUsers},
+        VALUES (#{tenantId}, #{name}, #{startTime}, #{endTime}, #{maxQueryUsers},
                 #{allowDuplicateReport}, #{allowHistoryQuery}, #{rollStrategy},
                 #{rollIntervalValue}, #{rollIntervalUnit}, #{rollUserCount},
                 'active', #{createBy}, #{updateBy})
     </insert>
 
     <update id="update">
-        UPDATE leaderboard
+        UPDATE leaderboard_plan
         SET name = #{name},
             start_time = #{startTime},
             end_time = #{endTime},
-            sort_order = #{sortOrder},
             max_query_users = #{maxQueryUsers},
             allow_duplicate_report = #{allowDuplicateReport},
             allow_history_query = #{allowHistoryQuery},
@@ -54,19 +52,19 @@
     </update>
 
     <select id="findById" resultMap="BaseMap">
-        SELECT * FROM leaderboard WHERE id = #{id}
+        SELECT * FROM leaderboard_plan WHERE id = #{id}
     </select>
 
     <select id="findByTenantId" resultMap="BaseMap">
-        SELECT * FROM leaderboard WHERE tenant_id = #{tenantId} ORDER BY id DESC
+        SELECT * FROM leaderboard_plan WHERE tenant_id = #{tenantId} ORDER BY id DESC
     </select>
 
     <select id="findAll" resultMap="BaseMap">
-        SELECT * FROM leaderboard ORDER BY id DESC
+        SELECT * FROM leaderboard_plan ORDER BY id DESC
     </select>
 
     <select id="findAllWithPage" resultMap="BaseMap">
-        SELECT * FROM leaderboard ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+        SELECT * FROM leaderboard_plan ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="count" resultType="long">
@@ -74,11 +72,11 @@
     </select>
 
     <select id="findByTenantIdWithPage" resultMap="BaseMap">
-        SELECT * FROM leaderboard WHERE tenant_id = #{tenantId} ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+        SELECT * FROM leaderboard_plan WHERE tenant_id = #{tenantId} ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="countByTenantId" resultType="long">
-        SELECT COUNT(*) FROM leaderboard WHERE tenant_id = #{tenantId}
+        SELECT COUNT(*) FROM leaderboard_plan WHERE tenant_id = #{tenantId}
     </select>
 
 </mapper>

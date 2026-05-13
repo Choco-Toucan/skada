@@ -4,7 +4,7 @@ import com.skada.common.annotation.RequirePermission;
 import com.skada.common.model.BaseResponse;
 import com.skada.common.model.PageResult;
 import com.skada.mng.model.Leaderboard;
-import com.skada.mng.model.LeaderboardCycle;
+import com.skada.mng.model.LeaderboardInstance;
 import com.skada.mng.model.request.LeaderboardCreateRequest;
 import com.skada.mng.model.request.LeaderboardUpdateRequest;
 import com.skada.mng.service.LeaderboardConfigService;
@@ -85,10 +85,10 @@ public class LeaderboardConfigController {
     }
 
     /**
-     * 查询排行榜的所有周期（含历史周期），供管理后台查看
+     * 查询排行榜的所有实例（含历史实例），供管理后台查看
      */
-    @GetMapping("/cycles")
-    public BaseResponse<List<LeaderboardCycle>> getCycles(Long leaderboardId) {
-        return BaseResponse.success(configService.getCycles(leaderboardId));
+    @GetMapping("/instances")
+    public BaseResponse<List<LeaderboardInstance>> getInstances(Long leaderboardId) {
+        return BaseResponse.success(configService.getInstances(leaderboardId));
     }
 }

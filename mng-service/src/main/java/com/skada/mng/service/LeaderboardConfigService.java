@@ -2,15 +2,18 @@ package com.skada.mng.service;
 
 import com.skada.common.exception.BusinessException;
 import com.skada.common.model.PageResult;
-import com.skada.mng.mapper.LeaderboardCycleMapper;
+import com.skada.mng.mapper.LeaderboardInstanceMapper;
 import com.skada.mng.mapper.LeaderboardMapper;
+import com.skada.mng.mapper.LeaderboardMetricMapper;
 import com.skada.mng.model.Leaderboard;
-import com.skada.mng.model.LeaderboardCycle;
+import com.skada.mng.model.LeaderboardInstance;
+import com.skada.mng.model.LeaderboardMetric;
 import com.skada.mng.model.request.LeaderboardCreateRequest;
 import com.skada.mng.model.request.LeaderboardUpdateRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -21,20 +24,23 @@ import java.util.List;
 public class LeaderboardConfigService {
 
     private final LeaderboardMapper leaderboardMapper;
-    private final LeaderboardCycleMapper cycleMapper;
+    private final LeaderboardInstanceMapper instanceMapper;
+    private final LeaderboardMetricMapper leaderboardMetricMapper;
     private final TenantService tenantService;
 
     public LeaderboardConfigService(LeaderboardMapper leaderboardMapper,
-                                    LeaderboardCycleMapper cycleMapper,
+                                    LeaderboardInstanceMapper instanceMapper,
+                                    LeaderboardMetricMapper leaderboardMetricMapper,
                                     TenantService tenantService) {
         this.leaderboardMapper = leaderboardMapper;
-        this.cycleMapper = cycleMapper;
+        this.instanceMapper = instanceMapper;
+        this.leaderboardMetricMapper = leaderboardMetricMapper;
         this.tenantService = tenantService;
     }
 
     /**
      * 创建排行榜
-     * 同时创建第一个活跃周期
+     * 同时创建第一个活跃实例
      */
     @Transactional
     public Leaderboard create(LeaderboardCreateRequest request, String adminId) {
@@ -42,8 +48,10 @@ public class LeaderboardConfigService {
         if (tenantService.findByTenantId(request.getTenantId()) == null) {
             throw new BusinessException("租户不存在");
         }
+        if (request.getMetrics() == null || request.getMetrics().isEmpty()) {
+            throw new BusinessException("至少需要关联一个指标");
+        }
 
-        // 校验参数
         validateCreateRequest(request);
 
         Leaderboard lb = new Leaderboard();
@@ -51,7 +59,6 @@ public class LeaderboardConfigService {
         lb.setName(request.getName().trim());
         lb.setStartTime(request.getStartTime());
         lb.setEndTime(request.getEndTime());
-        lb.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : "desc");
         lb.setMaxQueryUsers(request.getMaxQueryUsers() != null ? request.getMaxQueryUsers() : 1000);
         lb.setAllowDuplicateReport(request.getAllowDuplicateReport() != null ? request.getAllowDuplicateReport() : 0);
         lb.setAllowHistoryQuery(request.getAllowHistoryQuery() != null ? request.getAllowHistoryQuery() : 1);
@@ -65,19 +72,31 @@ public class LeaderboardConfigService {
 
         leaderboardMapper.insert(lb);
 
-        // 创建第一个活跃周期
-        LeaderboardCycle cycle = new LeaderboardCycle();
-        cycle.setLeaderboardId(lb.getId());
-        cycle.setCycleSeq(1);
-        cycle.setCycleStartTime(request.getStartTime());
-        cycle.setStatus("active");
-        cycle.setCreateBy(adminId);
-        cycle.setUpdateBy(adminId);
-        cycleMapper.insert(cycle);
+        // 创建第一个活跃实例
+        LeaderboardInstance instance = new LeaderboardInstance();
+        instance.setLeaderboardId(lb.getId());
+        instance.setInstanceSeq(1);
+        instance.setStartTime(request.getStartTime());
+        instance.setStatus("active");
+        instance.setCreateBy(adminId);
+        instance.setUpdateBy(adminId);
+        instanceMapper.insert(instance);
 
-        // 更新排行榜的当前周期ID
-        lb.setCurrentCycleId(cycle.getId());
+        // 更新排行榜的当前实例ID
+        lb.setCurrentInstanceId(instance.getId());
         leaderboardMapper.update(lb);
+
+        // 关联指标
+        List<LeaderboardMetric> metrics = new ArrayList<>();
+        for (var ma : request.getMetrics()) {
+            LeaderboardMetric lm = new LeaderboardMetric();
+            lm.setLeaderboardId(lb.getId());
+            lm.setMetricId(ma.getMetricId());
+            lm.setPriority(ma.getPriority() != null ? ma.getPriority() : 1);
+            lm.setSortOrder(ma.getSortOrder() != null ? ma.getSortOrder() : "desc");
+            metrics.add(lm);
+        }
+        leaderboardMetricMapper.insertBatch(metrics);
 
         return lb;
     }
@@ -96,7 +115,6 @@ public class LeaderboardConfigService {
         }
         if (request.getStartTime() != null) lb.setStartTime(request.getStartTime());
         if (request.getEndTime() != null) lb.setEndTime(request.getEndTime());
-        if (request.getSortOrder() != null) lb.setSortOrder(request.getSortOrder());
         if (request.getMaxQueryUsers() != null) lb.setMaxQueryUsers(request.getMaxQueryUsers());
         if (request.getAllowDuplicateReport() != null) lb.setAllowDuplicateReport(request.getAllowDuplicateReport());
         if (request.getAllowHistoryQuery() != null) lb.setAllowHistoryQuery(request.getAllowHistoryQuery());
@@ -107,6 +125,22 @@ public class LeaderboardConfigService {
         lb.setUpdateBy(adminId);
 
         leaderboardMapper.update(lb);
+
+        // 更新指标关联：先删后插
+        if (request.getMetrics() != null && !request.getMetrics().isEmpty()) {
+            leaderboardMetricMapper.deleteByLeaderboardId(lb.getId());
+            List<LeaderboardMetric> metrics = new ArrayList<>();
+            for (var ma : request.getMetrics()) {
+                LeaderboardMetric lm = new LeaderboardMetric();
+                lm.setLeaderboardId(lb.getId());
+                lm.setMetricId(ma.getMetricId());
+                lm.setPriority(ma.getPriority() != null ? ma.getPriority() : 1);
+                lm.setSortOrder(ma.getSortOrder() != null ? ma.getSortOrder() : "desc");
+                metrics.add(lm);
+            }
+            leaderboardMetricMapper.insertBatch(metrics);
+        }
+
         return leaderboardMapper.findById(lb.getId());
     }
 
@@ -163,25 +197,25 @@ public class LeaderboardConfigService {
             throw new BusinessException("排行榜已终止，无法滚动");
         }
 
-        // 关闭当前活跃周期
-        LeaderboardCycle activeCycle = cycleMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeCycle != null) {
-            cycleMapper.closeCycle(activeCycle.getId(), System.currentTimeMillis());
+        // 关闭当前活跃实例
+        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+        if (activeInstance != null) {
+            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
         }
 
-        // 创建新周期
-        int maxSeq = cycleMapper.getMaxCycleSeq(leaderboardId);
-        LeaderboardCycle newCycle = new LeaderboardCycle();
-        newCycle.setLeaderboardId(leaderboardId);
-        newCycle.setCycleSeq(maxSeq + 1);
-        newCycle.setCycleStartTime(System.currentTimeMillis());
-        newCycle.setStatus("active");
-        newCycle.setCreateBy(adminId);
-        newCycle.setUpdateBy(adminId);
-        cycleMapper.insert(newCycle);
+        // 创建新实例
+        int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
+        LeaderboardInstance newInstance = new LeaderboardInstance();
+        newInstance.setLeaderboardId(leaderboardId);
+        newInstance.setInstanceSeq(maxSeq + 1);
+        newInstance.setStartTime(System.currentTimeMillis());
+        newInstance.setStatus("active");
+        newInstance.setCreateBy(adminId);
+        newInstance.setUpdateBy(adminId);
+        instanceMapper.insert(newInstance);
 
-        // 更新排行榜的当前周期
-        lb.setCurrentCycleId(newCycle.getId());
+        // 更新排行榜的当前实例
+        lb.setCurrentInstanceId(newInstance.getId());
         leaderboardMapper.update(lb);
 
         return lb;
@@ -200,10 +234,10 @@ public class LeaderboardConfigService {
             throw new BusinessException("排行榜已经处于终止状态");
         }
 
-        // 关闭当前活跃周期
-        LeaderboardCycle activeCycle = cycleMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeCycle != null) {
-            cycleMapper.closeCycle(activeCycle.getId(), System.currentTimeMillis());
+        // 关闭当前活跃实例
+        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+        if (activeInstance != null) {
+            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
         }
 
         // 标记排行榜已终止
@@ -215,10 +249,10 @@ public class LeaderboardConfigService {
     }
 
     /**
-     * 查询排行榜的所有周期（含历史周期）
+     * 查询排行榜的所有实例（含历史实例）
      */
-    public List<LeaderboardCycle> getCycles(Long leaderboardId) {
-        return cycleMapper.findByLeaderboardId(leaderboardId);
+    public List<LeaderboardInstance> getInstances(Long leaderboardId) {
+        return instanceMapper.findByLeaderboardId(leaderboardId);
     }
 
     private void validateCreateRequest(LeaderboardCreateRequest request) {

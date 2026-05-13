@@ -1,0 +1,99 @@
+{
+  "info": {
+    "name": "Skada API Service",
+    "description": "Skada 排行榜对外API服务接口集合。\n\n基础地址: http://localhost:8801\n所有接口返回统一格式 BaseResponse<T>。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8801", "type": "string" },
+    { "key": "tenantId", "value": "your-tenant-id", "type": "string" },
+    { "key": "secretKey", "value": "your-secret-key", "type": "string" },
+    { "key": "leaderboardId", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Score",
+      "description": "分数上报相关接口（多指标支持）",
+      "item": [
+        {
+          "name": "单次分数上报",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"secretKey\": \"{{secretKey}}\",\n  \"leaderboardId\": {{leaderboardId}},\n  \"userId\": \"user-001\",\n  \"metrics\": [\n    { \"metricId\": 1, \"value\": 95.5 },\n    { \"metricId\": 2, \"value\": 80.0 }\n  ],\n  \"payload\": \"{\\\"level\\\": 10}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/score/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "score", "submit"]
+            },
+            "description": "上报单个用户的多指标分数。\n请求体:\n- tenantId (必填)\n- secretKey (必填)\n- leaderboardId (必填)\n- userId (必填)\n- metrics (必填): [{metricId, value}]\n- payload (可选)\n错误: 401=鉴权失败, 400=排行榜不存在/未开始/无活跃实例/不允许重复上报"
+          },
+          "response": []
+        },
+        {
+          "name": "批量分数上报",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"secretKey\": \"{{secretKey}}\",\n  \"leaderboardId\": {{leaderboardId}},\n  \"scores\": [\n    {\n      \"userId\": \"user-001\",\n      \"metrics\": [\n        { \"metricId\": 1, \"value\": 100 },\n        { \"metricId\": 2, \"value\": 50 }\n      ],\n      \"payload\": \"{\\\"round\\\": 1}\"\n    },\n    {\n      \"userId\": \"user-002\",\n      \"metrics\": [\n        { \"metricId\": 1, \"value\": 85.5 }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/score/batch-submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "score", "batch-submit"]
+            },
+            "description": "批量上报多个用户的多指标分数。\n限制: 单次最多1000条\nscores中每项必须包含userId和metrics"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Leaderboard",
+      "description": "排行榜查询相关接口",
+      "item": [
+        {
+          "name": "获取排行榜排名（多指标）",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/ranking?leaderboardId={{leaderboardId}}&limit=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "ranking"],
+              "query": [
+                { "key": "leaderboardId", "value": "{{leaderboardId}}", "description": "排行榜计划ID (必填)" },
+                { "key": "instanceId", "value": "", "description": "实例ID (可选)", "disabled": true },
+                { "key": "limit", "value": "100", "description": "返回条数 (可选，默认100)" },
+                { "key": "tenantId", "value": "{{tenantId}}", "description": "租户ID (条件必填)", "disabled": true },
+                { "key": "secretKey", "value": "{{secretKey}}", "description": "租户密钥 (条件必填)", "disabled": true }
+              ]
+            },
+            "description": "查询排行榜排名，返回多指标值。\n返回格式: [{rank, userId, metricValues: [{metricId, metricName, value}]}]"
+          },
+          "response": []
+        },
+        {
+          "name": "获取排行榜实例列表",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard/instances?leaderboardId={{leaderboardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leaderboard", "instances"],
+              "query": [
+                { "key": "leaderboardId", "value": "{{leaderboardId}}", "description": "排行榜计划ID (必填)" }
+              ]
+            },
+            "description": "获取指定排行榜计划的所有实例列表（含历史和当前活跃实例）"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

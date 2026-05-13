@@ -21,6 +21,12 @@
             <span>排行榜</span>
           </router-link>
         </a-menu-item>
+        <a-menu-item key="/metrics">
+          <router-link to="/metrics">
+            <line-chart-outlined />
+            <span>指标管理</span>
+          </router-link>
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
     <a-layout>
@@ -45,6 +51,7 @@ import {
   DashboardOutlined,
   TeamOutlined,
   BarChartOutlined,
+  LineChartOutlined,
 } from '@ant-design/icons-vue'
 
 const router = useRouter()

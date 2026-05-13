@@ -1,7 +1,7 @@
 package com.skada.api.model;
 
 /**
- * 排行榜（API服务用）
+ * 排行榜计划（API服务用）
  */
 public class Leaderboard {
 
@@ -10,14 +10,13 @@ public class Leaderboard {
     private String name;
     private Long startTime;
     private Long endTime;
-    private String sortOrder;
     private Integer maxQueryUsers;
     private Integer allowDuplicateReport;
     private Integer allowHistoryQuery;
     private String rollStrategy;
     private Integer rollUserCount;
     private String status;
-    private Long currentCycleId;
+    private Long currentInstanceId;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -29,8 +28,6 @@ public class Leaderboard {
     public void setStartTime(Long startTime) { this.startTime = startTime; }
     public Long getEndTime() { return endTime; }
     public void setEndTime(Long endTime) { this.endTime = endTime; }
-    public String getSortOrder() { return sortOrder; }
-    public void setSortOrder(String sortOrder) { this.sortOrder = sortOrder; }
     public Integer getMaxQueryUsers() { return maxQueryUsers; }
     public void setMaxQueryUsers(Integer maxQueryUsers) { this.maxQueryUsers = maxQueryUsers; }
     public Integer getAllowDuplicateReport() { return allowDuplicateReport; }
@@ -43,6 +40,6 @@ public class Leaderboard {
     public void setRollUserCount(Integer rollUserCount) { this.rollUserCount = rollUserCount; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public Long getCurrentCycleId() { return currentCycleId; }
-    public void setCurrentCycleId(Long currentCycleId) { this.currentCycleId = currentCycleId; }
+    public Long getCurrentInstanceId() { return currentInstanceId; }
+    public void setCurrentInstanceId(Long currentInstanceId) { this.currentInstanceId = currentInstanceId; }
 }

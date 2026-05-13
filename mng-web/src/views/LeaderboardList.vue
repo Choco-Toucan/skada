@@ -2,7 +2,7 @@
   <div>
     <a-card>
       <template #title>
-        <span>排行榜</span>
+        <span>排行榜计划</span>
         <router-link to="/leaderboard/create">
           <a-button type="primary" size="small" style="margin-left: 16px">新建排行榜</a-button>
         </router-link>
@@ -71,8 +71,8 @@ const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
   { title: '名称', dataIndex: 'name', key: 'name' },
   { title: '所属租户', dataIndex: 'tenantId', key: 'tenantId' },
-  { title: '排序', dataIndex: 'sortOrder', key: 'sortOrder' },
   { title: '滚动策略', key: 'rollStrategy' },
+  { title: '当前实例', dataIndex: 'currentInstanceId', key: 'currentInstanceId' },
   { title: '状态', key: 'status' },
   { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
   { title: '操作', key: 'actions' },

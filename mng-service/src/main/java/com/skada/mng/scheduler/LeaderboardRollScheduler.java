@@ -1,10 +1,10 @@
 package com.skada.mng.scheduler;
 
 import com.skada.common.util.DistributedLock;
-import com.skada.mng.mapper.LeaderboardCycleMapper;
+import com.skada.mng.mapper.LeaderboardInstanceMapper;
 import com.skada.mng.mapper.LeaderboardMapper;
 import com.skada.mng.model.Leaderboard;
-import com.skada.mng.model.LeaderboardCycle;
+import com.skada.mng.model.LeaderboardInstance;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,14 +28,14 @@ public class LeaderboardRollScheduler {
     private static final Logger log = LogManager.getLogger(LeaderboardRollScheduler.class);
 
     private final LeaderboardMapper leaderboardMapper;
-    private final LeaderboardCycleMapper cycleMapper;
+    private final LeaderboardInstanceMapper instanceMapper;
     private final DistributedLock distributedLock;
 
     public LeaderboardRollScheduler(LeaderboardMapper leaderboardMapper,
-                                    LeaderboardCycleMapper cycleMapper,
+                                    LeaderboardInstanceMapper instanceMapper,
                                     DistributedLock distributedLock) {
         this.leaderboardMapper = leaderboardMapper;
-        this.cycleMapper = cycleMapper;
+        this.instanceMapper = instanceMapper;
         this.distributedLock = distributedLock;
     }
 
@@ -72,8 +72,8 @@ public class LeaderboardRollScheduler {
                     continue;
                 }
 
-                LeaderboardCycle activeCycle = cycleMapper.findActiveByLeaderboardId(lb.getId());
-                if (activeCycle == null) {
+                LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(lb.getId());
+                if (activeInstance == null) {
                     continue;
                 }
 
@@ -82,10 +82,10 @@ public class LeaderboardRollScheduler {
                     continue;
                 }
 
-                long cycleEndTime = activeCycle.getCycleStartTime() + intervalMs;
-                if (now >= cycleEndTime) {
-                    log.info("触发周期性滚动: leaderboardId={}, cycleSeq={}",
-                            lb.getId(), activeCycle.getCycleSeq());
+                long instanceEndTime = activeInstance.getStartTime() + intervalMs;
+                if (now >= instanceEndTime) {
+                    log.info("触发周期性滚动: leaderboardId={}, instanceSeq={}",
+                            lb.getId(), activeInstance.getInstanceSeq());
                     rollLeaderboard(lb.getId(), "scheduler");
                 }
             }
@@ -96,10 +96,10 @@ public class LeaderboardRollScheduler {
 
     @Transactional
     public void stopLeaderboard(Long leaderboardId) {
-        // 关闭当前活跃周期
-        LeaderboardCycle activeCycle = cycleMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeCycle != null) {
-            cycleMapper.closeCycle(activeCycle.getId(), System.currentTimeMillis());
+        // 关闭当前活跃实例
+        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+        if (activeInstance != null) {
+            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
         }
 
         // 标记排行榜已终止
@@ -113,24 +113,24 @@ public class LeaderboardRollScheduler {
 
     @Transactional
     public void rollLeaderboard(Long leaderboardId, String adminId) {
-        LeaderboardCycle activeCycle = cycleMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeCycle != null) {
-            cycleMapper.closeCycle(activeCycle.getId(), System.currentTimeMillis());
+        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+        if (activeInstance != null) {
+            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
         }
 
-        int maxSeq = cycleMapper.getMaxCycleSeq(leaderboardId);
-        LeaderboardCycle newCycle = new LeaderboardCycle();
-        newCycle.setLeaderboardId(leaderboardId);
-        newCycle.setCycleSeq(maxSeq + 1);
-        newCycle.setCycleStartTime(System.currentTimeMillis());
-        newCycle.setStatus("active");
-        newCycle.setCreateBy(adminId);
-        newCycle.setUpdateBy(adminId);
-        cycleMapper.insert(newCycle);
+        int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
+        LeaderboardInstance newInstance = new LeaderboardInstance();
+        newInstance.setLeaderboardId(leaderboardId);
+        newInstance.setInstanceSeq(maxSeq + 1);
+        newInstance.setStartTime(System.currentTimeMillis());
+        newInstance.setStatus("active");
+        newInstance.setCreateBy(adminId);
+        newInstance.setUpdateBy(adminId);
+        instanceMapper.insert(newInstance);
 
         Leaderboard lb = leaderboardMapper.findById(leaderboardId);
         if (lb != null) {
-            lb.setCurrentCycleId(newCycle.getId());
+            lb.setCurrentInstanceId(newInstance.getId());
             leaderboardMapper.update(lb);
         }
     }

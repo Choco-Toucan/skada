@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.mng.mapper.LeaderboardMetricMapper">
+
+    <resultMap id="BaseMap" type="com.skada.mng.model.LeaderboardMetric">
+        <id column="id" property="id"/>
+        <result column="leaderboard_id" property="leaderboardId"/>
+        <result column="metric_id" property="metricId"/>
+        <result column="priority" property="priority"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order)
+        VALUES (#{leaderboardId}, #{metricId}, #{priority}, #{sortOrder})
+    </insert>
+
+    <insert id="insertBatch" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.leaderboardId}, #{item.metricId}, #{item.priority}, #{item.sortOrder})
+        </foreach>
+    </insert>
+
+    <delete id="deleteByLeaderboardId">
+        DELETE FROM leaderboard_metric WHERE leaderboard_id = #{leaderboardId}
+    </delete>
+
+    <select id="findByLeaderboardId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_metric WHERE leaderboard_id = #{leaderboardId} ORDER BY priority ASC
+    </select>
+
+</mapper>

@@ -54,14 +54,39 @@ export interface TenantUpdateRequest {
   status?: number
 }
 
-/** 排行榜 */
+/** 指标 */
+export interface Metric {
+  id: number
+  tenantId: string
+  name: string
+  code: string
+  description: string | null
+  createTime: string
+  updateTime: string
+}
+
+/** 创建指标请求 */
+export interface MetricCreateRequest {
+  tenantId: string
+  name: string
+  code: string
+  description?: string
+}
+
+/** 更新指标请求 */
+export interface MetricUpdateRequest {
+  id: number
+  name?: string
+  description?: string
+}
+
+/** 排行榜计划 */
 export interface Leaderboard {
   id: number
   tenantId: string
   name: string
   startTime: number
   endTime: number | null
-  sortOrder: string
   maxQueryUsers: number
   allowDuplicateReport: number
   allowHistoryQuery: number
@@ -70,17 +95,23 @@ export interface Leaderboard {
   rollIntervalUnit: string | null
   rollUserCount: number | null
   status: string
-  currentCycleId: number | null
+  currentInstanceId: number | null
   createTime: string
 }
 
-/** 创建排行榜请求 */
+/** 指标关联 */
+export interface MetricAssociation {
+  metricId: number
+  priority: number
+  sortOrder: string
+}
+
+/** 创建排行榜计划请求 */
 export interface LeaderboardCreateRequest {
   tenantId: string
   name: string
   startTime: number
   endTime?: number
-  sortOrder?: string
   maxQueryUsers?: number
   allowDuplicateReport?: number
   allowHistoryQuery?: number
@@ -88,4 +119,31 @@ export interface LeaderboardCreateRequest {
   rollIntervalValue?: number
   rollIntervalUnit?: string
   rollUserCount?: number
+  metrics: MetricAssociation[]
+}
+
+/** 更新排行榜计划请求 */
+export interface LeaderboardUpdateRequest {
+  id: number
+  name?: string
+  startTime?: number
+  endTime?: number
+  maxQueryUsers?: number
+  allowDuplicateReport?: number
+  allowHistoryQuery?: number
+  rollStrategy?: string
+  rollIntervalValue?: number
+  rollIntervalUnit?: string
+  rollUserCount?: number
+  metrics?: MetricAssociation[]
+}
+
+/** 排行榜实例 */
+export interface LeaderboardInstance {
+  id: number
+  leaderboardId: number
+  instanceSeq: number
+  startTime: number
+  endTime: number | null
+  status: string
 }

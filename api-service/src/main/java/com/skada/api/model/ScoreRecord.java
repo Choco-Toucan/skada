@@ -4,13 +4,15 @@ import java.math.BigDecimal;
 
 /**
  * 分数记录实体
+ * 记录用户在某个排行榜实例中某个指标的值
  */
 public class ScoreRecord {
 
     private Long id;
     private String tenantId;
     private Long leaderboardId;
-    private Long cycleId;
+    private Long instanceId;
+    private Long metricId;
     private String userId;
     private BigDecimal score;
     private String payload;
@@ -23,8 +25,10 @@ public class ScoreRecord {
     public void setTenantId(String tenantId) { this.tenantId = tenantId; }
     public Long getLeaderboardId() { return leaderboardId; }
     public void setLeaderboardId(Long leaderboardId) { this.leaderboardId = leaderboardId; }
-    public Long getCycleId() { return cycleId; }
-    public void setCycleId(Long cycleId) { this.cycleId = cycleId; }
+    public Long getInstanceId() { return instanceId; }
+    public void setInstanceId(Long instanceId) { this.instanceId = instanceId; }
+    public Long getMetricId() { return metricId; }
+    public void setMetricId(Long metricId) { this.metricId = metricId; }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
     public BigDecimal getScore() { return score; }
