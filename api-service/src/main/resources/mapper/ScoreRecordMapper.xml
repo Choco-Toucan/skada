@@ -33,7 +33,7 @@
         SELECT * FROM score_record
         WHERE leaderboard_id = #{leaderboardId} AND instance_id = #{instanceId}
         ORDER BY score ${sortOrder}
-        LIMIT #{limit}
+        LIMIT #{size} OFFSET #{from}
     </select>
 
     <select id="findByUserAndInstance" resultMap="BaseMap">

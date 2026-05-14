@@ -7,6 +7,7 @@ package com.skada.mng.model;
 public class LeaderboardInstance {
 
     private Long id;
+    private String instanceId;
     private Long leaderboardId;
     private Integer instanceSeq;
     private Long startTime;
@@ -19,6 +20,8 @@ public class LeaderboardInstance {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public String getInstanceId() { return instanceId; }
+    public void setInstanceId(String instanceId) { this.instanceId = instanceId; }
     public Long getLeaderboardId() { return leaderboardId; }
     public void setLeaderboardId(Long leaderboardId) { this.leaderboardId = leaderboardId; }
     public Integer getInstanceSeq() { return instanceSeq; }

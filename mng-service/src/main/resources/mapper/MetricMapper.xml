@@ -5,9 +5,9 @@
 
     <resultMap id="BaseMap" type="com.skada.mng.model.Metric">
         <id column="id" property="id"/>
+        <result column="metric_id" property="metricId"/>
         <result column="tenant_id" property="tenantId"/>
         <result column="name" property="name"/>
-        <result column="code" property="code"/>
         <result column="description" property="description"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
@@ -23,19 +23,18 @@
         SELECT * FROM metric WHERE id = #{id}
     </select>
 
-    <select id="findByTenantIdAndCode" resultMap="BaseMap">
-        SELECT * FROM metric WHERE tenant_id = #{tenantId} AND code = #{code} LIMIT 1
+    <select id="findByMetricId" resultMap="BaseMap">
+        SELECT * FROM metric WHERE metric_id = #{metricId} LIMIT 1
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO metric (tenant_id, name, code, description, create_by, update_by)
-        VALUES (#{tenantId}, #{name}, #{code}, #{description}, #{createBy}, #{updateBy})
+        INSERT INTO metric (metric_id, tenant_id, name, description, create_by, update_by)
+        VALUES (#{metricId}, #{tenantId}, #{name}, #{description}, #{createBy}, #{updateBy})
     </insert>
 
     <update id="update">
         UPDATE metric
         SET name = #{name},
-            code = #{code},
             description = #{description},
             update_by = #{updateBy}
         WHERE id = #{id}

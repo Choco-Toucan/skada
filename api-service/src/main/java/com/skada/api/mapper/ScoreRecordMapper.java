@@ -16,7 +16,8 @@ public interface ScoreRecordMapper {
     List<ScoreRecord> findRanking(@Param("leaderboardId") Long leaderboardId,
                                   @Param("instanceId") Long instanceId,
                                   @Param("sortOrder") String sortOrder,
-                                  @Param("limit") int limit);
+                                  @Param("from") int from,
+                                  @Param("size") int size);
 
     ScoreRecord findByUserAndInstance(@Param("leaderboardId") Long leaderboardId,
                                       @Param("instanceId") Long instanceId,

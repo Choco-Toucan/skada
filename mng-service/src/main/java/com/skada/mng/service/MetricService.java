@@ -9,6 +9,7 @@ import com.skada.mng.model.request.MetricUpdateRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 指标管理服务
@@ -34,22 +35,14 @@ public class MetricService {
         if (request.getName() == null || request.getName().isBlank()) {
             throw new BusinessException("指标名称不能为空");
         }
-        if (request.getCode() == null || request.getCode().isBlank()) {
-            throw new BusinessException("指标编码不能为空");
-        }
         if (tenantService.findByTenantId(request.getTenantId()) == null) {
             throw new BusinessException("租户不存在");
         }
-        // 检查编码唯一性
-        Metric existing = metricMapper.findByTenantIdAndCode(request.getTenantId(), request.getCode());
-        if (existing != null) {
-            throw new BusinessException("该租户下已存在相同编码的指标");
-        }
 
         Metric metric = new Metric();
+        metric.setMetricId("mt_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
         metric.setTenantId(request.getTenantId());
         metric.setName(request.getName().trim());
-        metric.setCode(request.getCode().trim());
         metric.setDescription(request.getDescription());
         metric.setCreateBy(adminId);
         metric.setUpdateBy(adminId);

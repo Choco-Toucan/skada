@@ -5,6 +5,7 @@
 
     <resultMap id="BaseMap" type="com.skada.api.model.LeaderboardInstance">
         <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
         <result column="leaderboard_id" property="leaderboardId"/>
         <result column="instance_seq" property="instanceSeq"/>
         <result column="start_time" property="startTime"/>
@@ -27,6 +28,10 @@
 
     <select id="findById" resultMap="BaseMap">
         SELECT * FROM leaderboard_instance WHERE id = #{id}
+    </select>
+
+    <select id="findByInstanceId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_instance WHERE instance_id = #{instanceId} LIMIT 1
     </select>
 
     <update id="closeInstance">

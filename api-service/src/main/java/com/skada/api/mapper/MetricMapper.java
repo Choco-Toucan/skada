@@ -11,6 +11,8 @@ public interface MetricMapper {
 
     Metric findById(@Param("id") Long id);
 
+    Metric findByMetricId(@Param("metricId") String metricId);
+
     List<Metric> findByTenantId(@Param("tenantId") String tenantId);
 
     List<Metric> findByIds(@Param("ids") List<Long> ids);

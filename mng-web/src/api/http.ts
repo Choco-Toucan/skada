@@ -16,27 +16,40 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config
 })
 
+/** 清除登录态并跳转登录页 */
+function clearAuthAndRedirect(errorMessage?: string) {
+  if (errorMessage) {
+    message.error(errorMessage)
+  }
+  localStorage.removeItem('skada_token')
+  localStorage.removeItem('skada_display_id')
+  localStorage.removeItem('skada_role')
+  window.location.href = '/#/login'
+}
+
 /** 响应拦截器：统一处理错误 */
 http.interceptors.response.use(
   (response: AxiosResponse<ApiResponse<any>>) => {
     const body = response.data
     if (body.code !== 200) {
+      if (body.code === 401) {
+        clearAuthAndRedirect(body.message || 'token已过期或无效')
+        return Promise.reject(new Error(body.message))
+      }
       message.error(body.message || '请求失败')
       return Promise.reject(new Error(body.message))
     }
     return response
   },
   (error) => {
+    if (error.response?.status === 401 || error.response?.data?.code === 401) {
+      clearAuthAndRedirect(error.response?.data?.message || 'token已过期或无效')
+      return Promise.reject(error)
+    }
     if (error.response?.data?.message) {
       message.error(error.response.data.message)
     } else {
       message.error('网络错误')
-    }
-    // 401 跳转登录
-    if (error.response?.status === 401 || error.response?.data?.code === 401) {
-      localStorage.removeItem('skada_token')
-      localStorage.removeItem('skada_admin')
-      window.location.href = '/#/login'
     }
     return Promise.reject(error)
   },

@@ -5,6 +5,7 @@
 
     <resultMap id="BaseMap" type="com.skada.mng.model.LeaderboardInstance">
         <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
         <result column="leaderboard_id" property="leaderboardId"/>
         <result column="instance_seq" property="instanceSeq"/>
         <result column="start_time" property="startTime"/>
@@ -17,12 +18,16 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard_instance (leaderboard_id, instance_seq, start_time, end_time, status, create_by, update_by)
-        VALUES (#{leaderboardId}, #{instanceSeq}, #{startTime}, #{endTime}, #{status}, #{createBy}, #{updateBy})
+        INSERT INTO leaderboard_instance (instance_id, leaderboard_id, instance_seq, start_time, end_time, status, create_by, update_by)
+        VALUES (#{instanceId}, #{leaderboardId}, #{instanceSeq}, #{startTime}, #{endTime}, #{status}, #{createBy}, #{updateBy})
     </insert>
 
     <select id="findById" resultMap="BaseMap">
         SELECT * FROM leaderboard_instance WHERE id = #{id}
+    </select>
+
+    <select id="findByInstanceId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_instance WHERE instance_id = #{instanceId} LIMIT 1
     </select>
 
     <select id="findActiveByLeaderboardId" resultMap="BaseMap">

@@ -120,6 +120,7 @@ public class LeaderboardRollScheduler {
 
         int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
         LeaderboardInstance newInstance = new LeaderboardInstance();
+        newInstance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
         newInstance.setLeaderboardId(leaderboardId);
         newInstance.setInstanceSeq(maxSeq + 1);
         newInstance.setStartTime(System.currentTimeMillis());

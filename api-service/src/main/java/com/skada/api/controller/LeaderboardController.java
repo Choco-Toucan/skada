@@ -25,21 +25,23 @@ public class LeaderboardController {
 
     /**
      * 查询排行榜排名（多指标）
-     * @param leaderboardId 排行榜计划ID
-     * @param instanceId 实例ID（可选，默认当前活跃实例）
-     * @param limit 返回条数（可选，默认100）
+     * @param planId 排行榜计划外部ID
+     * @param instanceId 实例外部ID（可选，默认当前活跃实例）
+     * @param from 起始位置（0-based，含）
+     * @param to 结束位置（0-based，含），范围受maxQueryUsers约束
      * @param tenantId 租户ID（可选，仅当租户不允许匿名查询时必填）
      * @param secretKey 租户密钥（可选，仅当租户不允许匿名查询时必填）
      */
     @GetMapping("/ranking")
     public BaseResponse<List<LeaderboardQueryService.RankEntry>> getRanking(
-            @RequestParam Long leaderboardId,
-            @RequestParam(required = false) Long instanceId,
-            @RequestParam(defaultValue = "100") int limit,
+            @RequestParam String planId,
+            @RequestParam(required = false) String instanceId,
+            @RequestParam int from,
+            @RequestParam int to,
             @RequestParam(required = false) String tenantId,
             @RequestParam(required = false) String secretKey) {
         List<LeaderboardQueryService.RankEntry> ranking =
-                queryService.getRanking(leaderboardId, instanceId, limit, tenantId, secretKey);
+                queryService.getRanking(planId, instanceId, from, to, tenantId, secretKey);
         return BaseResponse.success(ranking);
     }
 
@@ -47,7 +49,7 @@ public class LeaderboardController {
      * 查询排行榜计划的所有实例列表（含历史）
      */
     @GetMapping("/instances")
-    public BaseResponse<List<LeaderboardInstance>> getInstances(@RequestParam Long leaderboardId) {
-        return BaseResponse.success(queryService.getInstances(leaderboardId));
+    public BaseResponse<List<LeaderboardInstance>> getInstances(@RequestParam String planId) {
+        return BaseResponse.success(queryService.getInstances(planId));
     }
 }

@@ -9,5 +9,7 @@ public interface LeaderboardMapper {
 
     Leaderboard findById(@Param("id") Long id);
 
+    Leaderboard findByPlanId(@Param("planId") String planId);
+
     int update(Leaderboard leaderboard);
 }

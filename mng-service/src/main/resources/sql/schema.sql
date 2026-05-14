@@ -53,16 +53,16 @@ CREATE TABLE IF NOT EXISTS tenant (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS metric (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    metric_id   VARCHAR(32)  NOT NULL COMMENT '指标外部标识，格式: mt_xxxxxxxx',
     tenant_id   VARCHAR(32)  NOT NULL COMMENT '所属租户ID',
     name        VARCHAR(128) NOT NULL COMMENT '指标名称',
-    code        VARCHAR(64)  NOT NULL COMMENT '指标编码(租户内唯一)',
     description VARCHAR(256) NULL     COMMENT '指标描述',
     create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     create_by   VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '创建人',
     update_by   VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '更新人',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_code (tenant_id, code),
+    UNIQUE KEY uk_metric_id (metric_id),
     KEY idx_tenant_id (tenant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='指标';
 
@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS metric (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS leaderboard_plan (
     id                    BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    plan_id               VARCHAR(32)  NOT NULL COMMENT '排行榜计划外部标识，格式: lb_xxxxxxxx',
     tenant_id             VARCHAR(32)  NOT NULL COMMENT '所属租户ID',
     name                  VARCHAR(128) NOT NULL COMMENT '排行榜名称',
     start_time            BIGINT       NOT NULL COMMENT '开始时间(毫秒时间戳)',
@@ -89,6 +90,7 @@ CREATE TABLE IF NOT EXISTS leaderboard_plan (
     create_by             VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '创建人',
     update_by             VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '更新人',
     PRIMARY KEY (id),
+    UNIQUE KEY uk_plan_id (plan_id),
     KEY idx_tenant_id (tenant_id),
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜计划';
@@ -117,6 +119,7 @@ CREATE TABLE IF NOT EXISTS leaderboard_metric (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS leaderboard_instance (
     id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    instance_id       VARCHAR(32)  NOT NULL COMMENT '实例外部标识，格式: li_xxxxxxxx',
     leaderboard_id    BIGINT       NOT NULL COMMENT '所属排行榜计划ID',
     instance_seq      INT          NOT NULL COMMENT '实例序号(从1递增)',
     start_time        BIGINT       NOT NULL COMMENT '实例开始时间(毫秒时间戳)',
@@ -127,6 +130,7 @@ CREATE TABLE IF NOT EXISTS leaderboard_instance (
     create_by         VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '创建人',
     update_by         VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '更新人',
     PRIMARY KEY (id),
+    UNIQUE KEY uk_instance_id (instance_id),
     KEY idx_leaderboard_id (leaderboard_id),
     KEY idx_leaderboard_status (leaderboard_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜实例';

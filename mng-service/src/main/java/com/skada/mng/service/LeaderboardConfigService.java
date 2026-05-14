@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 排行榜配置服务
@@ -55,6 +56,7 @@ public class LeaderboardConfigService {
         validateCreateRequest(request);
 
         Leaderboard lb = new Leaderboard();
+        lb.setPlanId("lb_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
         lb.setTenantId(request.getTenantId());
         lb.setName(request.getName().trim());
         lb.setStartTime(request.getStartTime());
@@ -74,6 +76,7 @@ public class LeaderboardConfigService {
 
         // 创建第一个活跃实例
         LeaderboardInstance instance = new LeaderboardInstance();
+        instance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
         instance.setLeaderboardId(lb.getId());
         instance.setInstanceSeq(1);
         instance.setStartTime(request.getStartTime());
@@ -206,6 +209,7 @@ public class LeaderboardConfigService {
         // 创建新实例
         int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
         LeaderboardInstance newInstance = new LeaderboardInstance();
+        newInstance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
         newInstance.setLeaderboardId(leaderboardId);
         newInstance.setInstanceSeq(maxSeq + 1);
         newInstance.setStartTime(System.currentTimeMillis());

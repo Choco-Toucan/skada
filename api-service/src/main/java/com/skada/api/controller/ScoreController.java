@@ -25,7 +25,7 @@ public class ScoreController {
 
     /**
      * 单条分数上报
-     * 请求体: {tenantId, secretKey, userId, metrics: [{metricId, value, payload?}]}
+     * 请求体: {tenantId, secretKey, userId, metrics: [{metricId(字符串), value, payload?}]}
      */
     @PostMapping("/submit")
     public BaseResponse<Void> submit(@RequestBody Map<String, Object> body) {
@@ -44,7 +44,7 @@ public class ScoreController {
 
     /**
      * 批量分数上报
-     * 请求体: {tenantId, secretKey, scores: [{userId, metrics: [{metricId, value, payload?}]}]}
+     * 请求体: {tenantId, secretKey, scores: [{userId, metrics: [{metricId(字符串), value, payload?}]}]}
      */
     @PostMapping("/batch-submit")
     public BaseResponse<Void> batchSubmit(@RequestBody Map<String, Object> body) {
@@ -92,7 +92,8 @@ public class ScoreController {
         List<ScoreService.MetricValue> result = new ArrayList<>();
         for (Map<String, Object> m : raw) {
             ScoreService.MetricValue mv = new ScoreService.MetricValue();
-            mv.setMetricId(m.get("metricId") != null ? ((Number) m.get("metricId")).longValue() : null);
+            Object rawMetricId = m.get("metricId");
+            mv.setMetricId(rawMetricId != null ? rawMetricId.toString() : null);
             mv.setValue(m.get("value") != null ? new BigDecimal(m.get("value").toString()) : null);
             mv.setPayload((String) m.get("payload"));
             if (mv.getMetricId() == null || mv.getValue() == null) {

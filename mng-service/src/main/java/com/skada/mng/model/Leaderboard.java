@@ -6,6 +6,7 @@ package com.skada.mng.model;
 public class Leaderboard {
 
     private Long id;
+    private String planId;
     private String tenantId;
     private String name;
     private Long startTime;
@@ -26,6 +27,8 @@ public class Leaderboard {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public String getPlanId() { return planId; }
+    public void setPlanId(String planId) { this.planId = planId; }
     public String getTenantId() { return tenantId; }
     public void setTenantId(String tenantId) { this.tenantId = tenantId; }
     public String getName() { return name; }

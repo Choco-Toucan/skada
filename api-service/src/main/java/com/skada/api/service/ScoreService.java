@@ -3,6 +3,7 @@ package com.skada.api.service;
 import com.skada.api.mapper.LeaderboardInstanceMapper;
 import com.skada.api.mapper.LeaderboardMapper;
 import com.skada.api.mapper.LeaderboardMetricMapper;
+import com.skada.api.mapper.MetricMapper;
 import com.skada.api.mapper.ScoreRecordMapper;
 import com.skada.api.model.*;
 import com.skada.common.exception.BusinessException;
@@ -36,6 +37,7 @@ public class ScoreService {
     private final LeaderboardMapper leaderboardMapper;
     private final LeaderboardInstanceMapper instanceMapper;
     private final LeaderboardMetricMapper leaderboardMetricMapper;
+    private final MetricMapper metricMapper;
     private final ScoreRecordMapper scoreRecordMapper;
     private final StringRedisTemplate redisTemplate;
     private final DistributedLock distributedLock;
@@ -44,6 +46,7 @@ public class ScoreService {
                         LeaderboardMapper leaderboardMapper,
                         LeaderboardInstanceMapper instanceMapper,
                         LeaderboardMetricMapper leaderboardMetricMapper,
+                        MetricMapper metricMapper,
                         ScoreRecordMapper scoreRecordMapper,
                         StringRedisTemplate redisTemplate,
                         DistributedLock distributedLock) {
@@ -51,6 +54,7 @@ public class ScoreService {
         this.leaderboardMapper = leaderboardMapper;
         this.instanceMapper = instanceMapper;
         this.leaderboardMetricMapper = leaderboardMetricMapper;
+        this.metricMapper = metricMapper;
         this.scoreRecordMapper = scoreRecordMapper;
         this.redisTemplate = redisTemplate;
         this.distributedLock = distributedLock;
@@ -68,14 +72,18 @@ public class ScoreService {
             throw new BusinessException(401, "租户鉴权失败");
         }
 
+        // 解析外部metricId为内部Long id
+        Map<String, Long> metricIdMap = resolveMetricIds(metrics);
+        List<Long> internalMetricIds = new ArrayList<>(metricIdMap.values());
+
         // 根据指标集合解析排行榜计划
-        Long leaderboardId = resolveLeaderboardId(tenantId, metrics);
+        Long leaderboardId = resolveLeaderboardIdByMetricIds(tenantId, internalMetricIds);
 
         Leaderboard lb = validateAndGetLeaderboard(leaderboardId, tenantId);
         LeaderboardInstance instance = validateAndGetActiveInstance(leaderboardId);
 
         // 校验指标属于该计划
-        validateMetricsAgainstPlan(leaderboardId, metrics);
+        validateMetricsAgainstPlan(leaderboardId, metrics, metricIdMap);
 
         // 检查是否允许重复上报
         if (lb.getAllowDuplicateReport() == 0) {
@@ -86,7 +94,7 @@ public class ScoreService {
             }
         }
 
-        writeMetrics(tenantId, leaderboardId, instance.getId(), userId, metrics);
+        writeMetrics(tenantId, leaderboardId, instance.getId(), userId, metrics, metricIdMap);
         checkUserCountRoll(lb, instance);
     }
 
@@ -104,18 +112,22 @@ public class ScoreService {
             throw new BusinessException(401, "租户鉴权失败");
         }
 
-        // 所有条目的指标集合必须一致，取第一条解析
-        List<Long> metricIds = items.get(0).getMetrics().stream()
-                .map(MetricValue::getMetricId).sorted().toList();
+        // 解析外部metricId为内部Long id
+        Map<String, Long> metricIdMap = resolveMetricIds(items.get(0).getMetrics());
+        List<Long> internalMetricIds = new ArrayList<>(metricIdMap.values());
+
+        // 所有条目的指标集合必须一致
+        String firstMetricIds = items.get(0).getMetrics().stream()
+                .map(MetricValue::getMetricId).sorted().collect(Collectors.joining(","));
         for (var item : items) {
-            List<Long> itemMetricIds = item.getMetrics().stream()
-                    .map(MetricValue::getMetricId).sorted().toList();
-            if (!metricIds.equals(itemMetricIds)) {
+            String itemMetricIds = item.getMetrics().stream()
+                    .map(MetricValue::getMetricId).sorted().collect(Collectors.joining(","));
+            if (!firstMetricIds.equals(itemMetricIds)) {
                 throw new BusinessException("批量上报中每条数据的指标集合必须一致");
             }
         }
 
-        Long leaderboardId = resolveLeaderboardIdByMetricIds(tenantId, metricIds);
+        Long leaderboardId = resolveLeaderboardIdByMetricIds(tenantId, internalMetricIds);
         Leaderboard lb = validateAndGetLeaderboard(leaderboardId, tenantId);
         LeaderboardInstance instance = validateAndGetActiveInstance(leaderboardId);
 
@@ -131,7 +143,7 @@ public class ScoreService {
 
         String userCountKey = String.format(USER_COUNT_KEY_PREFIX, leaderboardId, instance.getId());
         for (var item : items) {
-            writeMetrics(tenantId, leaderboardId, instance.getId(), item.getUserId(), item.getMetrics());
+            writeMetrics(tenantId, leaderboardId, instance.getId(), item.getUserId(), item.getMetrics(), metricIdMap);
             redisTemplate.opsForHyperLogLog().add(userCountKey, item.getUserId());
         }
 
@@ -142,9 +154,16 @@ public class ScoreService {
      * 根据上报的指标集合解析对应的排行榜计划ID
      * 一个指标集合必须唯一对应一个排行榜计划，否则报错
      */
-    private Long resolveLeaderboardId(String tenantId, List<MetricValue> metrics) {
-        List<Long> metricIds = metrics.stream().map(MetricValue::getMetricId).distinct().sorted().toList();
-        return resolveLeaderboardIdByMetricIds(tenantId, metricIds);
+    private Map<String, Long> resolveMetricIds(List<MetricValue> metrics) {
+        Map<String, Long> map = new LinkedHashMap<>();
+        for (MetricValue mv : metrics) {
+            Metric m = metricMapper.findByMetricId(mv.getMetricId());
+            if (m == null) {
+                throw new BusinessException("指标不存在: " + mv.getMetricId());
+            }
+            map.put(mv.getMetricId(), m.getId());
+        }
+        return map;
     }
 
     private Long resolveLeaderboardIdByMetricIds(String tenantId, List<Long> metricIds) {
@@ -183,17 +202,19 @@ public class ScoreService {
     }
 
     private void writeMetrics(String tenantId, Long leaderboardId, Long instanceId,
-                               String userId, List<MetricValue> metrics) {
+                               String userId, List<MetricValue> metrics,
+                               Map<String, Long> metricIdMap) {
         List<ScoreRecord> records = new ArrayList<>();
         for (MetricValue mv : metrics) {
-            String rankingKey = String.format(RANKING_KEY_PREFIX, leaderboardId, instanceId, mv.getMetricId());
+            Long internalMetricId = metricIdMap.get(mv.getMetricId());
+            String rankingKey = String.format(RANKING_KEY_PREFIX, leaderboardId, instanceId, internalMetricId);
             redisTemplate.opsForZSet().add(rankingKey, userId, mv.getValue().doubleValue());
 
             ScoreRecord r = new ScoreRecord();
             r.setTenantId(tenantId);
             r.setLeaderboardId(leaderboardId);
             r.setInstanceId(instanceId);
-            r.setMetricId(mv.getMetricId());
+            r.setMetricId(internalMetricId);
             r.setUserId(userId);
             r.setScore(mv.getValue());
             r.setPayload(mv.getPayload());
@@ -226,11 +247,13 @@ public class ScoreService {
         return instance;
     }
 
-    private void validateMetricsAgainstPlan(Long leaderboardId, List<MetricValue> metrics) {
+    private void validateMetricsAgainstPlan(Long leaderboardId, List<MetricValue> metrics,
+                                            Map<String, Long> metricIdMap) {
         List<LeaderboardMetric> lbMetrics = leaderboardMetricMapper.findByLeaderboardId(leaderboardId);
         Set<Long> planMetricIds = lbMetrics.stream().map(LeaderboardMetric::getMetricId).collect(Collectors.toSet());
         for (MetricValue mv : metrics) {
-            if (!planMetricIds.contains(mv.getMetricId())) {
+            Long internalMetricId = metricIdMap.get(mv.getMetricId());
+            if (!planMetricIds.contains(internalMetricId)) {
                 throw new BusinessException("指标 " + mv.getMetricId() + " 不属于该排行榜计划");
             }
         }
@@ -277,6 +300,7 @@ public class ScoreService {
 
         int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
         LeaderboardInstance newInstance = new LeaderboardInstance();
+        newInstance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
         newInstance.setLeaderboardId(leaderboardId);
         newInstance.setInstanceSeq(maxSeq + 1);
         newInstance.setStartTime(System.currentTimeMillis());
@@ -299,12 +323,12 @@ public class ScoreService {
      * 单个指标值，payload 在此层级
      */
     public static class MetricValue {
-        private Long metricId;
+        private String metricId;
         private BigDecimal value;
         private String payload;
 
-        public Long getMetricId() { return metricId; }
-        public void setMetricId(Long metricId) { this.metricId = metricId; }
+        public String getMetricId() { return metricId; }
+        public void setMetricId(String metricId) { this.metricId = metricId; }
         public BigDecimal getValue() { return value; }
         public void setValue(BigDecimal value) { this.value = value; }
         public String getPayload() { return payload; }

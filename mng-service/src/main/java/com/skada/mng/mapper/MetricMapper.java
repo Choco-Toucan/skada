@@ -13,7 +13,7 @@ public interface MetricMapper {
 
     Metric findById(@Param("id") Long id);
 
-    Metric findByTenantIdAndCode(@Param("tenantId") String tenantId, @Param("code") String code);
+    Metric findByMetricId(@Param("metricId") String metricId);
 
     int insert(Metric metric);
 

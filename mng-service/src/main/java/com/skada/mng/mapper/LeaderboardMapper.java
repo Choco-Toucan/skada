@@ -15,6 +15,8 @@ public interface LeaderboardMapper {
 
     Leaderboard findById(@Param("id") Long id);
 
+    Leaderboard findByPlanId(@Param("planId") String planId);
+
     List<Leaderboard> findByTenantId(@Param("tenantId") String tenantId);
 
     List<Leaderboard> findByTenantIdWithPage(@Param("tenantId") String tenantId,

@@ -5,6 +5,7 @@
 
     <resultMap id="BaseMap" type="com.skada.mng.model.Leaderboard">
         <id column="id" property="id"/>
+        <result column="plan_id" property="planId"/>
         <result column="tenant_id" property="tenantId"/>
         <result column="name" property="name"/>
         <result column="start_time" property="startTime"/>
@@ -25,11 +26,11 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard_plan (tenant_id, name, start_time, end_time, max_query_users,
+        INSERT INTO leaderboard_plan (plan_id, tenant_id, name, start_time, end_time, max_query_users,
                                  allow_duplicate_report, allow_history_query, roll_strategy,
                                  roll_interval_value, roll_interval_unit, roll_user_count,
                                  status, create_by, update_by)
-        VALUES (#{tenantId}, #{name}, #{startTime}, #{endTime}, #{maxQueryUsers},
+        VALUES (#{planId}, #{tenantId}, #{name}, #{startTime}, #{endTime}, #{maxQueryUsers},
                 #{allowDuplicateReport}, #{allowHistoryQuery}, #{rollStrategy},
                 #{rollIntervalValue}, #{rollIntervalUnit}, #{rollUserCount},
                 'active', #{createBy}, #{updateBy})
@@ -55,6 +56,10 @@
         SELECT * FROM leaderboard_plan WHERE id = #{id}
     </select>
 
+    <select id="findByPlanId" resultMap="BaseMap">
+        SELECT * FROM leaderboard_plan WHERE plan_id = #{planId} LIMIT 1
+    </select>
+
     <select id="findByTenantId" resultMap="BaseMap">
         SELECT * FROM leaderboard_plan WHERE tenant_id = #{tenantId} ORDER BY id DESC
     </select>
@@ -68,7 +73,7 @@
     </select>
 
     <select id="count" resultType="long">
-        SELECT COUNT(*) FROM leaderboard
+        SELECT COUNT(*) FROM leaderboard_plan
     </select>
 
     <select id="findByTenantIdWithPage" resultMap="BaseMap">

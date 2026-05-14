@@ -13,6 +13,8 @@ public interface LeaderboardInstanceMapper {
 
     LeaderboardInstance findById(@Param("id") Long id);
 
+    LeaderboardInstance findByInstanceId(@Param("instanceId") String instanceId);
+
     LeaderboardInstance findActiveByLeaderboardId(@Param("leaderboardId") Long leaderboardId);
 
     List<LeaderboardInstance> findByLeaderboardId(@Param("leaderboardId") Long leaderboardId);
