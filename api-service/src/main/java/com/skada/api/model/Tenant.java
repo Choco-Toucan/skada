@@ -1,5 +1,7 @@
 package com.skada.api.model;
 
+import com.skada.common.enums.TenantStatus;
+
 /**
  * 租户（API服务用）
  */
@@ -24,4 +26,11 @@ public class Tenant {
     public void setAllowAnonymousQuery(Integer allowAnonymousQuery) { this.allowAnonymousQuery = allowAnonymousQuery; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
+
+    /** 获取状态枚举 */
+    public TenantStatus getStatusEnum() { return TenantStatus.fromValue(status); }
+    /** 通过枚举设置状态 */
+    public void setStatusEnum(TenantStatus s) { this.status = s.getValue(); }
+    /** 租户是否启用 */
+    public boolean isEnabled() { return getStatusEnum().isEnabled(); }
 }

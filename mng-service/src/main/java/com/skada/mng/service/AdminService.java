@@ -49,7 +49,7 @@ public class AdminService {
         if (admin == null) {
             throw new BusinessException("用户名或密码错误");
         }
-        if (admin.getStatus() != 1) {
+        if (admin.getStatus() == null || admin.getStatus() != 1) {
             throw new BusinessException("账号已被停用");
         }
         if (!passwordEncoder.matches(password, admin.getPasswordHash())) {

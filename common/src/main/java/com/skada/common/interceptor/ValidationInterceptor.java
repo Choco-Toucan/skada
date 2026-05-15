@@ -35,7 +35,7 @@ public class ValidationInterceptor implements HandlerInterceptor {
         // POST/PUT 请求必须带 Content-Type: application/json
         if ("POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method)) {
             String contentType = request.getContentType();
-            if (contentType != null && !contentType.toLowerCase().contains(MediaType.APPLICATION_JSON_VALUE)) {
+            if (contentType == null || !contentType.toLowerCase().contains(MediaType.APPLICATION_JSON_VALUE)) {
                 writeError(response, 400, "请求Content-Type必须为application/json");
                 return false;
             }

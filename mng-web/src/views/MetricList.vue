@@ -19,9 +19,6 @@
         <a-form-item name="name">
           <a-input v-model:value="newForm.name" placeholder="指标名称" />
         </a-form-item>
-        <a-form-item name="code">
-          <a-input v-model:value="newForm.code" placeholder="指标编码(英文)" />
-        </a-form-item>
         <a-form-item name="description">
           <a-input v-model:value="newForm.description" placeholder="描述(可选)" />
         </a-form-item>
@@ -63,14 +60,13 @@ const selectedTenantId = ref('')
 const newForm = reactive({
   tenantId: '',
   name: '',
-  code: '',
   description: '',
 })
 
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
   { title: '名称', dataIndex: 'name', key: 'name' },
-  { title: '编码', dataIndex: 'code', key: 'code' },
+  { title: '标识', dataIndex: 'metricId', key: 'metricId' },
   { title: '描述', dataIndex: 'description', key: 'description' },
   { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
   { title: '操作', key: 'actions' },
@@ -97,19 +93,17 @@ async function fetchMetrics(tenantId: string) {
 }
 
 async function handleCreate() {
-  if (!newForm.tenantId || !newForm.name || !newForm.code) {
-    message.warning('请填写租户、名称和编码')
+  if (!newForm.tenantId || !newForm.name) {
+    message.warning('请填写租户和名称')
     return
   }
   await createMetric({
     tenantId: newForm.tenantId,
     name: newForm.name,
-    code: newForm.code,
     description: newForm.description || undefined,
   })
   message.success('创建成功')
   newForm.name = ''
-  newForm.code = ''
   newForm.description = ''
   fetchMetrics(selectedTenantId.value)
 }

@@ -25,7 +25,7 @@
         :columns="columns"
         :loading="loading"
         rowKey="id"
-        :pagination="{ current: page, pageSize: pageSize, total: total, showSizeChanger: true, onChange: onPageChange }"
+        :pagination="{ current: page, pageSize: pageSize, total: total, showSizeChanger: true, onChange: onPageChange, onShowSizeChange: onPageChange }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">

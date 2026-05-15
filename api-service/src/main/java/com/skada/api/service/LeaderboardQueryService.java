@@ -63,7 +63,7 @@ public class LeaderboardQueryService {
 
         // 租户鉴权
         Tenant tenant = tenantMapper.findByTenantId(lb.getTenantId());
-        if (tenant == null || tenant.getStatus() != 1) {
+        if (tenant == null || !tenant.isEnabled()) {
             throw new BusinessException("租户不存在或已停用");
         }
         if (tenant.getAllowAnonymousQuery() == 0) {
@@ -188,6 +188,18 @@ public class LeaderboardQueryService {
             }
         }
 
+        // 加载payload
+        List<String> userIds = userScores.stream().map(us -> us.userId).toList();
+        Map<String, Map<Long, String>> payloadMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<ScoreRecord> payloadRecords = scoreRecordMapper.findPayloadsByUsers(
+                    leaderboardId, instanceId, userIds);
+            for (ScoreRecord r : payloadRecords) {
+                payloadMap.computeIfAbsent(r.getUserId(), k -> new HashMap<>())
+                        .put(r.getMetricId(), r.getPayload());
+            }
+        }
+
         List<RankEntry> result = new ArrayList<>();
         int rank = from + 1;
         for (var us : userScores) {
@@ -195,6 +207,7 @@ public class LeaderboardQueryService {
             entry.setRank(rank++);
             entry.setUserId(us.userId);
 
+            Map<Long, String> userPayloads = payloadMap.getOrDefault(us.userId, Map.of());
             List<MetricValueEntry> metricValues = new ArrayList<>();
             // 主指标值
             MetricValueEntry primary = new MetricValueEntry();
@@ -202,6 +215,7 @@ public class LeaderboardQueryService {
             primary.setMetricId(metricExternalIds.getOrDefault(primaryMid, ""));
             primary.setMetricName(metricNames.get(primaryMid));
             primary.setValue(BigDecimal.valueOf(us.primaryScore));
+            primary.setPayload(userPayloads.get(primaryMid));
             metricValues.add(primary);
             // 其他指标值
             for (int i = 1; i < lbMetrics.size(); i++) {
@@ -210,6 +224,7 @@ public class LeaderboardQueryService {
                 mve.setMetricId(metricExternalIds.getOrDefault(mid, ""));
                 mve.setMetricName(metricNames.get(mid));
                 mve.setValue(us.metricValues.getOrDefault(mid, BigDecimal.ZERO));
+                mve.setPayload(userPayloads.get(mid));
                 metricValues.add(mve);
             }
             entry.setMetricValues(metricValues);
@@ -223,11 +238,11 @@ public class LeaderboardQueryService {
                                                     Map<Long, String> metricNames,
                                                     Map<Long, String> metricExternalIds,
                                                     int from) {
-        // 按userId聚合
-        Map<String, Map<Long, BigDecimal>> userMetricMap = new LinkedHashMap<>();
+        // 按userId聚合，同时保留payload
+        Map<String, Map<Long, ScoreRecord>> userMetricMap = new LinkedHashMap<>();
         for (ScoreRecord r : dbRecords) {
             userMetricMap.computeIfAbsent(r.getUserId(), k -> new HashMap<>())
-                    .put(r.getMetricId(), r.getScore());
+                    .put(r.getMetricId(), r);
         }
 
         List<RankEntry> result = new ArrayList<>();
@@ -238,10 +253,12 @@ public class LeaderboardQueryService {
             re.setUserId(entry.getKey());
             List<MetricValueEntry> values = new ArrayList<>();
             for (LeaderboardMetric lm : lbMetrics) {
+                ScoreRecord sr = entry.getValue().get(lm.getMetricId());
                 MetricValueEntry mve = new MetricValueEntry();
                 mve.setMetricId(metricExternalIds.getOrDefault(lm.getMetricId(), ""));
                 mve.setMetricName(metricNames.get(lm.getMetricId()));
-                mve.setValue(entry.getValue().getOrDefault(lm.getMetricId(), BigDecimal.ZERO));
+                mve.setValue(sr != null ? sr.getScore() : BigDecimal.ZERO);
+                mve.setPayload(sr != null ? sr.getPayload() : null);
                 values.add(mve);
             }
             re.setMetricValues(values);
@@ -281,6 +298,7 @@ public class LeaderboardQueryService {
         private String metricId;
         private String metricName;
         private BigDecimal value;
+        private String payload;
 
         public String getMetricId() { return metricId; }
         public void setMetricId(String metricId) { this.metricId = metricId; }
@@ -288,5 +306,7 @@ public class LeaderboardQueryService {
         public void setMetricName(String metricName) { this.metricName = metricName; }
         public BigDecimal getValue() { return value; }
         public void setValue(BigDecimal value) { this.value = value; }
+        public String getPayload() { return payload; }
+        public void setPayload(String payload) { this.payload = payload; }
     }
 }

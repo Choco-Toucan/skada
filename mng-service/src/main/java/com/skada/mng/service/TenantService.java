@@ -1,5 +1,6 @@
 package com.skada.mng.service;
 
+import com.skada.common.enums.TenantStatus;
 import com.skada.common.exception.BusinessException;
 import com.skada.common.model.PageResult;
 import com.skada.mng.mapper.TenantMapper;
@@ -63,7 +64,7 @@ public class TenantService {
             tenant.setAllowAnonymousQuery(request.getAllowAnonymousQuery());
         }
         if (request.getStatus() != null) {
-            tenant.setStatus(request.getStatus());
+            tenant.setStatusEnum(TenantStatus.fromValue(request.getStatus()));
         }
         tenant.setUpdateBy(adminId);
 

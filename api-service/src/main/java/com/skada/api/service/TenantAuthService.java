@@ -26,7 +26,7 @@ public class TenantAuthService {
             return null;
         }
         Tenant tenant = tenantMapper.findByTenantId(tenantId);
-        if (tenant == null || tenant.getStatus() != 1) {
+        if (tenant == null || !tenant.isEnabled()) {
             return null;
         }
         if (!secretKey.equals(tenant.getSecretKey())) {

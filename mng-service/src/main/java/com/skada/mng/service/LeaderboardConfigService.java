@@ -107,6 +107,7 @@ public class LeaderboardConfigService {
     /**
      * 更新排行榜配置
      */
+    @Transactional
     public Leaderboard update(LeaderboardUpdateRequest request, String adminId) {
         Leaderboard lb = leaderboardMapper.findById(request.getId());
         if (lb == null) {

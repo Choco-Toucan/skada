@@ -35,8 +35,8 @@ async function handleLogin() {
   try {
     await auth.login(form.username, form.password)
     router.push('/')
-  } catch {
-    // 错误由 http 拦截器处理
+  } catch (e: unknown) {
+    // http 拦截器已显示错误提示，此处不做重复处理
   } finally {
     loading.value = false
   }

@@ -57,9 +57,9 @@ export interface TenantUpdateRequest {
 /** 指标 */
 export interface Metric {
   id: number
+  metricId: string
   tenantId: string
   name: string
-  code: string
   description: string | null
   createTime: string
   updateTime: string
@@ -69,7 +69,6 @@ export interface Metric {
 export interface MetricCreateRequest {
   tenantId: string
   name: string
-  code: string
   description?: string
 }
 

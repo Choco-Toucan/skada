@@ -16,4 +16,6 @@ public interface LeaderboardMetricMapper {
     int deleteByLeaderboardId(@Param("leaderboardId") Long leaderboardId);
 
     List<LeaderboardMetric> findByLeaderboardId(@Param("leaderboardId") Long leaderboardId);
+
+    int countByMetricId(@Param("metricId") Long metricId);
 }

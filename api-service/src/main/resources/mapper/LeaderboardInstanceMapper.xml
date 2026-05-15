@@ -16,8 +16,8 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard_instance (leaderboard_id, instance_seq, start_time, end_time, status, create_by, update_by)
-        VALUES (#{leaderboardId}, #{instanceSeq}, #{startTime}, #{endTime}, #{status}, #{createBy}, #{updateBy})
+        INSERT INTO leaderboard_instance (instance_id, leaderboard_id, instance_seq, start_time, end_time, status, create_by, update_by)
+        VALUES (#{instanceId}, #{leaderboardId}, #{instanceSeq}, #{startTime}, #{endTime}, #{status}, #{createBy}, #{updateBy})
     </insert>
 
     <select id="findActiveByLeaderboardId" resultMap="BaseMap">

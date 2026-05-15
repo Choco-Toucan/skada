@@ -2,6 +2,7 @@ package com.skada.mng.service;
 
 import com.skada.common.exception.BusinessException;
 import com.skada.common.model.PageResult;
+import com.skada.mng.mapper.LeaderboardMetricMapper;
 import com.skada.mng.mapper.MetricMapper;
 import com.skada.mng.model.Metric;
 import com.skada.mng.model.request.MetricCreateRequest;
@@ -19,10 +20,13 @@ public class MetricService {
 
     private final MetricMapper metricMapper;
     private final TenantService tenantService;
+    private final LeaderboardMetricMapper leaderboardMetricMapper;
 
-    public MetricService(MetricMapper metricMapper, TenantService tenantService) {
+    public MetricService(MetricMapper metricMapper, TenantService tenantService,
+                         LeaderboardMetricMapper leaderboardMetricMapper) {
         this.metricMapper = metricMapper;
         this.tenantService = tenantService;
+        this.leaderboardMetricMapper = leaderboardMetricMapper;
     }
 
     /**
@@ -71,11 +75,16 @@ public class MetricService {
 
     /**
      * 删除指标
+     * 删除前检查是否有关联的排行榜计划
      */
     public void delete(Long id) {
         Metric metric = metricMapper.findById(id);
         if (metric == null) {
             throw new BusinessException("指标不存在");
+        }
+        int refCount = leaderboardMetricMapper.countByMetricId(id);
+        if (refCount > 0) {
+            throw new BusinessException("指标被 " + refCount + " 个排行榜计划引用，无法删除");
         }
         metricMapper.deleteById(id);
     }

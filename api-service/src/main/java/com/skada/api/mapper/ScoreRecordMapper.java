@@ -28,4 +28,8 @@ public interface ScoreRecordMapper {
 
     int countDistinctUsersByInstance(@Param("leaderboardId") Long leaderboardId,
                                      @Param("instanceId") Long instanceId);
+
+    List<ScoreRecord> findPayloadsByUsers(@Param("leaderboardId") Long leaderboardId,
+                                          @Param("instanceId") Long instanceId,
+                                          @Param("userIds") List<String> userIds);
 }

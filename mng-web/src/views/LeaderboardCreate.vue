@@ -24,7 +24,7 @@
           <a-col :span="10">
             <a-select v-model:value="item.metricId" placeholder="选择指标">
               <a-select-option v-for="m in availableMetrics" :key="m.id" :value="m.id">
-                {{ m.name }} ({{ m.code }})
+                {{ m.name }} ({{ m.metricId }})
               </a-select-option>
             </a-select>
           </a-col>

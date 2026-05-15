@@ -34,4 +34,8 @@
         SELECT * FROM leaderboard_metric WHERE leaderboard_id = #{leaderboardId} ORDER BY priority ASC
     </select>
 
+    <select id="countByMetricId" resultType="int">
+        SELECT COUNT(*) FROM leaderboard_metric WHERE metric_id = #{metricId}
+    </select>
+
 </mapper>
