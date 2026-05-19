@@ -9,7 +9,7 @@ name: Claude Code 审查
 #   CLAUDE_MODEL         — 模型名称
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 on:
@@ -113,6 +113,24 @@ jobs:
             echo "> 由 Claude Code Action 自动生成，如有误报请忽略或反馈。"
           } | gh pr comment $PR_NUMBER --body-file -
 
+      - name: 自动合并
+        id: auto-merge
+        if: steps.review.outputs.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # 检查审查结果中是否有 CRITICAL 问题
+          if grep -qiP '(🔴 CRITICAL|## CRITICAL)' /tmp/review.md; then
+            echo "审查发现 CRITICAL 问题，跳过自动合并"
+            echo "merge=blocked" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "审查未发现 CRITICAL 问题，启用自动合并"
+          gh pr merge $PR_NUMBER --auto --squash
+          echo "merge=auto" >> $GITHUB_OUTPUT
+
       - name: 飞书通知
         if: always()
         env:
@@ -129,9 +147,20 @@ jobs:
           fi
 
           if [ "$REVIEW_RESULT" = "success" ]; then
-            STATUS="✅ AI 代码审查完成"
-            COLOR="green"
-            BODY="审查结果已发布到 PR 评论区。"
+            MERGE_STATUS="${{ steps.auto-merge.outputs.merge }}"
+            if [ "$MERGE_STATUS" = "auto" ]; then
+              STATUS="✅ 审查通过，已自动合并"
+              COLOR="green"
+              BODY="无 CRITICAL 问题，已启用自动合并。"
+            elif [ "$MERGE_STATUS" = "blocked" ]; then
+              STATUS="⚠️ 审查发现严重问题"
+              COLOR="yellow"
+              BODY="存在 CRITICAL 问题，已阻止自动合并，请人工处理。"
+            else
+              STATUS="✅ AI 代码审查完成"
+              COLOR="green"
+              BODY="审查结果已发布到 PR 评论区。"
+            fi
           elif [ "$REVIEW_RESULT" = "skipped" ]; then
             STATUS="⏭️ AI 代码审查跳过"
             COLOR="yellow"
