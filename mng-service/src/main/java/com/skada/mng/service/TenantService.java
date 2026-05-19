@@ -8,6 +8,7 @@ import com.skada.mng.model.Tenant;
 import com.skada.mng.model.request.TenantCreateRequest;
 import com.skada.mng.model.request.TenantUpdateRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +30,7 @@ public class TenantService {
      * 创建租户
      * 自动生成 tenant_id 和 secret_key
      */
+    @Transactional
     public Tenant create(TenantCreateRequest request, String adminId) {
         if (request.getName() == null || request.getName().isBlank()) {
             throw new BusinessException("租户名称不能为空");
@@ -51,6 +53,7 @@ public class TenantService {
     /**
      * 更新租户信息
      */
+    @Transactional
     public Tenant update(TenantUpdateRequest request, String adminId) {
         Tenant tenant = tenantMapper.findById(request.getId());
         if (tenant == null) {
@@ -83,6 +86,9 @@ public class TenantService {
      * 分页查询租户
      */
     public PageResult<Tenant> findAllWithPage(int page, int pageSize) {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
         int offset = (page - 1) * pageSize;
         List<Tenant> records = tenantMapper.findAllWithPage(offset, pageSize);
         long total = tenantMapper.count();

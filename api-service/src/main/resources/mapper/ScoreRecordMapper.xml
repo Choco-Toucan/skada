@@ -32,7 +32,7 @@
     <select id="findRanking" resultMap="BaseMap">
         SELECT score, leaderboard_id, instance_id, metric_id, user_id, tenant_id, id, payload, create_time, update_time
         FROM score_record
-        WHERE leaderboard_id = #{leaderboardId} AND instance_id = #{instanceId}
+        WHERE leaderboard_id = #{leaderboardId} AND instance_id = #{instanceId} AND metric_id = #{metricId}
         ORDER BY score
         <choose>
             <when test='sortOrder == "ASC"'>ASC</when>

@@ -31,11 +31,11 @@ public class Leaderboard {
     public void setStartTime(Long startTime) { this.startTime = startTime; }
     public Long getEndTime() { return endTime; }
     public void setEndTime(Long endTime) { this.endTime = endTime; }
-    public Integer getMaxQueryUsers() { return maxQueryUsers; }
+    public Integer getMaxQueryUsers() { return maxQueryUsers != null ? maxQueryUsers : 1000; }
     public void setMaxQueryUsers(Integer maxQueryUsers) { this.maxQueryUsers = maxQueryUsers; }
-    public Integer getAllowDuplicateReport() { return allowDuplicateReport; }
+    public Integer getAllowDuplicateReport() { return allowDuplicateReport != null ? allowDuplicateReport : 0; }
     public void setAllowDuplicateReport(Integer allowDuplicateReport) { this.allowDuplicateReport = allowDuplicateReport; }
-    public Integer getAllowHistoryQuery() { return allowHistoryQuery; }
+    public Integer getAllowHistoryQuery() { return allowHistoryQuery != null ? allowHistoryQuery : 1; }
     public void setAllowHistoryQuery(Integer allowHistoryQuery) { this.allowHistoryQuery = allowHistoryQuery; }
     public String getRollStrategy() { return rollStrategy; }
     public void setRollStrategy(String rollStrategy) { this.rollStrategy = rollStrategy; }

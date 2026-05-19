@@ -1,0 +1,178 @@
+name: Claude Code 审查
+
+# 需要配置的 Secrets（加密存储）:
+#   ANTHROPIC_API_KEY    — API 密钥
+#   FEISHU_WEBHOOK_URL   — 飞书机器人 webhook 地址
+#
+# 需要配置的 Variables（明文存储）:
+#   ANTHROPIC_BASE_URL   — API 地址，如 https://api.deepseek.com/anthropic
+#   CLAUDE_MODEL         — 模型名称
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 获取 PR 变更内容
+        id: diff
+        run: |
+          git diff origin/main...HEAD > /tmp/pr.diff
+          DIFF_SIZE=$(wc -c < /tmp/pr.diff)
+          echo "diff_size=$DIFF_SIZE" >> $GITHUB_OUTPUT
+
+          # 限制 diff 大小，避免超 token
+          if [ "$DIFF_SIZE" -gt 50000 ]; then
+            head -c 50000 /tmp/pr.diff > /tmp/pr_trimmed.diff
+            echo "...[diff 过长已截断，完整变更请查看 PR Files Changed]" >> /tmp/pr_trimmed.diff
+            mv /tmp/pr_trimmed.diff /tmp/pr.diff
+          fi
+
+      - name: AI 代码审查
+        id: review
+        run: |
+          # 用 jq 安全构建 JSON 请求体，避免 diff 内容破坏 JSON
+          DIFF_CONTENT=$(cat /tmp/pr.diff)
+
+          REQUEST_BODY=$(jq -n \
+            --arg model "${{ vars.CLAUDE_MODEL }}" \
+            --arg diff "$DIFF_CONTENT" \
+            '{
+              model: $model,
+              max_tokens: 4096,
+              system: "你是一位资深代码审查专家。请用中文输出结果。按严重程度（CRITICAL/HIGH/MEDIUM/LOW）分类，每条问题标注文件路径。如果没有发现问题，请说明。",
+              messages: [
+                {
+                  role: "user",
+                  content: ("请审查以下 PR 变更:\n\n本项目是 monorepo：\n- api-service：对外排行榜 API（Spring Boot + MyBatis + Redis）\n- mng-service：管理后台 API（Spring Boot + MyBatis）\n- common：共享拦截器/工具类\n- mng-web：Vue3 + Ant Design Vue 管理前端\n\n检查：\n1. 安全漏洞（SQL注入、密钥泄露、越权、XSS）\n2. Java 代码质量（NPE、MyBatis Mapper、事务注解）\n3. Vue 类型安全、空值保护\n4. 死代码、命名规范\n\n变更内容:\n```diff\n" + $diff + "\n```")
+                }
+              ]
+            }')
+
+          RESPONSE=$(echo "$REQUEST_BODY" | curl -s -w "\n%{http_code}" -X POST "${{ vars.ANTHROPIC_BASE_URL }}/v1/messages" \
+            -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "Content-Type: application/json" \
+            -d @-)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API 调用失败 (HTTP $HTTP_CODE): $BODY"
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 提取审查文本（兼容多种 API 响应格式）
+          # DeepSeek 会返回 thinking 和 text 两种类型的消息块，只取 text 类型
+          REVIEW_TEXT=$(echo "$BODY" | jq -r '
+            if .content then
+              [.content[] | select(.type == "text") | .text] | join("\n\n")
+            elif .choices then
+              .choices[0].message.content
+            elif .message then
+              .message
+            else
+              empty
+            end
+          ' 2>/dev/null)
+          if [ -z "$REVIEW_TEXT" ]; then
+            echo "无法解析 API 响应: $BODY"
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 保存审查结果
+          echo "$REVIEW_TEXT" > /tmp/review.md
+          echo "result=success" >> $GITHUB_OUTPUT
+
+      - name: 发布审查评论到 PR
+        if: steps.review.outputs.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "## Claude Code 自动审查结果"
+            echo ""
+            cat /tmp/review.md
+            echo ""
+            echo "---"
+            echo "> 由 Claude Code Action 自动生成，如有误报请忽略或反馈。"
+          } | gh pr comment $PR_NUMBER --body-file -
+
+      - name: 飞书通知
+        if: always()
+        env:
+          REVIEW_RESULT: ${{ steps.review.outputs.result || 'failure' }}
+          WEBHOOK: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          REPO: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK_URL 未配置，跳过通知"
+            exit 0
+          fi
+
+          if [ "$REVIEW_RESULT" = "success" ]; then
+            STATUS="✅ AI 代码审查完成"
+            COLOR="green"
+            BODY="审查结果已发布到 PR 评论区。"
+          elif [ "$REVIEW_RESULT" = "skipped" ]; then
+            STATUS="⏭️ AI 代码审查跳过"
+            COLOR="yellow"
+            BODY="变更过大或无法获取 diff，已跳过。"
+          else
+            STATUS="❌ AI 代码审查失败"
+            COLOR="red"
+            BODY="API 调用出错，请检查 GitHub Secrets/Variables 配置。"
+          fi
+
+          curl -s -X POST "$WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$(cat <<JSON
+          {
+            "msg_type": "interactive",
+            "card": {
+              "header": {
+                "title": { "tag": "plain_text", "content": "${STATUS}" },
+                "template": "${COLOR}"
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "**PR #${PR_NUMBER} ${PR_TITLE}**\n${BODY}"
+                  }
+                },
+                {
+                  "tag": "action",
+                  "actions": [
+                    {
+                      "tag": "button",
+                      "text": { "tag": "plain_text", "content": "查看 PR" },
+                      "url": "${PR_URL}",
+                      "type": "primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          JSON
+          )"

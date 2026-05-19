@@ -1,0 +1,172 @@
+name: CI
+
+# 需要配置的 Secrets:
+#   FEISHU_WEBHOOK_URL — 飞书机器人 webhook 地址
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: skada_test
+          MYSQL_DATABASE: skada
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: 编译全部 Java 模块 & 测试
+        id: build
+        run: |
+          START=$(date +%s)
+          if mvn clean package -DskipTests=false 2>&1 | tee build.log; then
+            END=$(date +%s)
+            echo "cost=$((END - START))" >> $GITHUB_OUTPUT
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mng-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: mng-web/package-lock.json
+
+      - name: 安装依赖 & 构建
+        id: build
+        run: |
+          START=$(date +%s)
+          npm ci
+          if npm run build 2>&1 | tee build.log; then
+            END=$(date +%s)
+            echo "cost=$((END - START))" >> $GITHUB_OUTPUT
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # ==================== 飞书通知 ====================
+  notify:
+    needs: [backend, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 发送飞书通知
+        env:
+          BE_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          WEBHOOK: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          EVENT: ${{ github.event_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK_URL 未配置，跳过通知"
+            exit 0
+          fi
+
+          if [ "$EVENT" = "pull_request" ]; then
+            TITLE="CI #${PR_NUMBER} ${PR_TITLE}"
+          else
+            TITLE="CI ${BRANCH} — ${COMMIT_MSG:0:50}"
+          fi
+
+          # 判断状态
+          if [ "$BE_RESULT" = "success" ] && [ "$FRONTEND_RESULT" = "success" ]; then
+            STATUS="✅ 全部通过"
+            STATUS_COLOR="green"
+          elif [ "$BE_RESULT" = "failure" ] || [ "$FRONTEND_RESULT" = "failure" ]; then
+            STATUS="❌ 构建失败"
+            STATUS_COLOR="red"
+          else
+            STATUS="⚠️ 部分跳过"
+            STATUS_COLOR="yellow"
+          fi
+
+          BE_EMOJI="✅"; [ "$BE_RESULT" != "success" ] && BE_EMOJI="❌"
+          FRONTEND_EMOJI="✅"; [ "$FRONTEND_RESULT" != "success" ] && FRONTEND_EMOJI="⚠️"
+
+          curl -s -X POST "$WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$(cat <<JSON
+          {
+            "msg_type": "interactive",
+            "card": {
+              "header": {
+                "title": { "tag": "plain_text", "content": "${STATUS}" },
+                "template": "${STATUS_COLOR}"
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "**${TITLE}**\n分支: ${BRANCH}\n仓库: ${REPO}"
+                  }
+                },
+                { "tag": "hr" },
+                {
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "${BE_EMOJI} Java 后端\n${FRONTEND_EMOJI} Vue 前端"
+                  }
+                },
+                {
+                  "tag": "action",
+                  "actions": [
+                    {
+                      "tag": "button",
+                      "text": { "tag": "plain_text", "content": "查看详情" },
+                      "url": "${RUN_URL}",
+                      "type": "primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          JSON
+          )"

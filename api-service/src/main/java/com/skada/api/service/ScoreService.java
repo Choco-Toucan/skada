@@ -10,6 +10,7 @@ import com.skada.common.exception.BusinessException;
 import com.skada.common.util.DistributedLock;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,6 +96,10 @@ public class ScoreService {
         }
 
         writeMetrics(tenantId, leaderboardId, instance.getId(), userId, metrics, metricIdMap);
+
+        String userCountKey = String.format(USER_COUNT_KEY_PREFIX, leaderboardId, instance.getId());
+        redisTemplate.opsForHyperLogLog().add(userCountKey, userId);
+
         checkUserCountRoll(lb, instance);
     }
 
@@ -221,7 +226,11 @@ public class ScoreService {
             records.add(r);
         }
         if (!records.isEmpty()) {
-            scoreRecordMapper.insertBatch(records);
+            try {
+                scoreRecordMapper.insertBatch(records);
+            } catch (DuplicateKeyException e) {
+                throw new BusinessException("该用户已上报过分数，不允许重复上报");
+            }
         }
     }
 
@@ -235,6 +244,9 @@ public class ScoreService {
         }
         if (lb.getStartTime() > System.currentTimeMillis()) {
             throw new BusinessException("排行榜计划尚未开始");
+        }
+        if (lb.getEndTime() != null && lb.getEndTime() <= System.currentTimeMillis()) {
+            throw new BusinessException("排行榜已结束");
         }
         return lb;
     }

@@ -100,6 +100,7 @@ export interface Leaderboard {
 
 /** 指标关联 */
 export interface MetricAssociation {
+  /** 指标的内部数字主键（Metric.id），注意与 Metric.metricId（字符串外部标识）区分 */
   metricId: number
   priority: number
   sortOrder: string

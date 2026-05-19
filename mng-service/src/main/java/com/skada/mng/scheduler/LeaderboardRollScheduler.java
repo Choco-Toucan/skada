@@ -96,43 +96,65 @@ public class LeaderboardRollScheduler {
 
     @Transactional
     public void stopLeaderboard(Long leaderboardId) {
-        // 关闭当前活跃实例
-        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeInstance != null) {
-            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
+        String lockValue = UUID.randomUUID().toString();
+        String lockName = "roll:leaderboard:" + leaderboardId;
+        if (!distributedLock.tryLock(lockName, lockValue, 10, TimeUnit.SECONDS)) {
+            log.warn("排行榜操作进行中，跳过自动终止: leaderboardId={}", leaderboardId);
+            return;
         }
 
-        // 标记排行榜已终止
-        Leaderboard lb = leaderboardMapper.findById(leaderboardId);
-        if (lb != null) {
-            lb.setStatus("stopped");
-            lb.setUpdateBy("scheduler");
-            leaderboardMapper.update(lb);
+        try {
+            LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+            if (activeInstance != null) {
+                instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
+            }
+
+            Leaderboard lb = leaderboardMapper.findById(leaderboardId);
+            if (lb != null) {
+                lb.setStatus("stopped");
+                lb.setUpdateBy("scheduler");
+                leaderboardMapper.update(lb);
+            }
+        } finally {
+            distributedLock.unlock(lockName, lockValue);
         }
     }
 
     @Transactional
     public void rollLeaderboard(Long leaderboardId, String adminId) {
-        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeInstance != null) {
-            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
+        String lockValue = UUID.randomUUID().toString();
+        String lockName = "roll:leaderboard:" + leaderboardId;
+        if (!distributedLock.tryLock(lockName, lockValue, 10, TimeUnit.SECONDS)) {
+            log.warn("排行榜正在滚动中，跳过自动滚动: leaderboardId={}", leaderboardId);
+            return;
         }
 
-        int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
-        LeaderboardInstance newInstance = new LeaderboardInstance();
-        newInstance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
-        newInstance.setLeaderboardId(leaderboardId);
-        newInstance.setInstanceSeq(maxSeq + 1);
-        newInstance.setStartTime(System.currentTimeMillis());
-        newInstance.setStatus("active");
-        newInstance.setCreateBy(adminId);
-        newInstance.setUpdateBy(adminId);
-        instanceMapper.insert(newInstance);
+        try {
+            LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+            if (activeInstance == null) {
+                return;
+            }
 
-        Leaderboard lb = leaderboardMapper.findById(leaderboardId);
-        if (lb != null) {
-            lb.setCurrentInstanceId(newInstance.getId());
-            leaderboardMapper.update(lb);
+            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
+
+            int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
+            LeaderboardInstance newInstance = new LeaderboardInstance();
+            newInstance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
+            newInstance.setLeaderboardId(leaderboardId);
+            newInstance.setInstanceSeq(maxSeq + 1);
+            newInstance.setStartTime(System.currentTimeMillis());
+            newInstance.setStatus("active");
+            newInstance.setCreateBy(adminId);
+            newInstance.setUpdateBy(adminId);
+            instanceMapper.insert(newInstance);
+
+            Leaderboard lb = leaderboardMapper.findById(leaderboardId);
+            if (lb != null) {
+                lb.setCurrentInstanceId(newInstance.getId());
+                leaderboardMapper.update(lb);
+            }
+        } finally {
+            distributedLock.unlock(lockName, lockValue);
         }
     }
 

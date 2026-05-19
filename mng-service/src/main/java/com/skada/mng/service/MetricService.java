@@ -8,6 +8,7 @@ import com.skada.mng.model.Metric;
 import com.skada.mng.model.request.MetricCreateRequest;
 import com.skada.mng.model.request.MetricUpdateRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +33,7 @@ public class MetricService {
     /**
      * 创建指标
      */
+    @Transactional
     public Metric create(MetricCreateRequest request, String adminId) {
         if (request.getTenantId() == null || request.getTenantId().isBlank()) {
             throw new BusinessException("租户ID不能为空");
@@ -57,6 +59,7 @@ public class MetricService {
     /**
      * 更新指标
      */
+    @Transactional
     public Metric update(MetricUpdateRequest request, String adminId) {
         Metric metric = metricMapper.findById(request.getId());
         if (metric == null) {
@@ -77,6 +80,7 @@ public class MetricService {
      * 删除指标
      * 删除前检查是否有关联的排行榜计划
      */
+    @Transactional
     public void delete(Long id) {
         Metric metric = metricMapper.findById(id);
         if (metric == null) {
@@ -102,6 +106,9 @@ public class MetricService {
     }
 
     public PageResult<Metric> findAllWithPage(int page, int pageSize) {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
         int offset = (page - 1) * pageSize;
         List<Metric> records = metricMapper.findAllWithPage(offset, pageSize);
         long total = metricMapper.count();

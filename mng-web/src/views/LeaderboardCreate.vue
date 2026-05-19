@@ -45,6 +45,15 @@
       <a-button type="dashed" @click="addMetric" style="margin-bottom: 16px">+ 添加指标</a-button>
 
       <a-divider>其他配置</a-divider>
+      <a-form-item label="最大可查询用户数" name="maxQueryUsers">
+        <a-input-number v-model:value="form.maxQueryUsers" :min="1" style="width: 100%" />
+      </a-form-item>
+      <a-form-item label="允许重复上报" name="allowDuplicateReport">
+        <a-switch v-model:checked="form.allowDuplicateReport" />
+      </a-form-item>
+      <a-form-item label="允许查询历史榜单" name="allowHistoryQuery">
+        <a-switch v-model:checked="form.allowHistoryQuery" />
+      </a-form-item>
       <a-form-item label="滚动策略" name="rollStrategy">
         <a-select v-model:value="form.rollStrategy">
           <a-select-option value="none">不滚动</a-select-option>
@@ -80,6 +89,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import { listTenants } from '@/api/tenant'
 import { listMetrics } from '@/api/metric'
 import { createLeaderboard } from '@/api/leaderboard'
@@ -95,6 +105,9 @@ const form = reactive({
   name: '',
   startTime: undefined as string | undefined,
   endTime: undefined as string | undefined,
+  maxQueryUsers: 1000,
+  allowDuplicateReport: false,
+  allowHistoryQuery: true,
   rollStrategy: 'none',
   rollIntervalValue: undefined as number | undefined,
   rollIntervalUnit: 'hour' as string | undefined,
@@ -124,6 +137,18 @@ function removeMetric(idx: number) {
 }
 
 async function handleCreate() {
+  for (const m of form.metrics) {
+    if (m.metricId == null) {
+      message.error('请为每个指标选择一个具体的指标')
+      return
+    }
+  }
+
+  if (form.endTime && Number(form.startTime) >= Number(form.endTime)) {
+    message.error('结束时间必须晚于开始时间')
+    return
+  }
+
   loading.value = true
   try {
     await createLeaderboard({
@@ -131,6 +156,9 @@ async function handleCreate() {
       name: form.name,
       startTime: Number(form.startTime),
       endTime: form.endTime ? Number(form.endTime) : undefined,
+      maxQueryUsers: form.maxQueryUsers,
+      allowDuplicateReport: form.allowDuplicateReport ? 1 : 0,
+      allowHistoryQuery: form.allowHistoryQuery ? 1 : 0,
       rollStrategy: form.rollStrategy,
       rollIntervalValue: form.rollIntervalValue,
       rollIntervalUnit: form.rollIntervalUnit,

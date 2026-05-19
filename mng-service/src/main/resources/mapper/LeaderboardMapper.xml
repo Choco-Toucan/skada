@@ -48,6 +48,8 @@
             roll_interval_value = #{rollIntervalValue},
             roll_interval_unit = #{rollIntervalUnit},
             roll_user_count = #{rollUserCount},
+            status = #{status},
+            current_instance_id = #{currentInstanceId},
             update_by = #{updateBy}
         WHERE id = #{id}
     </update>

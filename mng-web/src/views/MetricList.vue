@@ -27,12 +27,16 @@
         </a-form-item>
       </a-form>
 
+      <a-alert v-if="error" type="error" message="加载失败" closable @close="fetchMetrics(selectedTenantId)" style="margin-bottom: 16px" />
       <a-table
         :dataSource="metrics"
         :columns="columns"
         :loading="loading"
         rowKey="id"
       >
+        <template #emptyText>
+          <span v-if="!loading && !error">暂无指标数据</span>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'actions'">
             <a-popconfirm title="确定删除该指标？" @confirm="handleDelete(record.id)">
@@ -55,6 +59,7 @@ import type { Tenant, Metric } from '@/types'
 const tenants = ref<Tenant[]>([])
 const metrics = ref<Metric[]>([])
 const loading = ref(false)
+const error = ref(false)
 const selectedTenantId = ref('')
 
 const newForm = reactive({
@@ -80,13 +85,18 @@ async function fetchTenants() {
 async function fetchMetrics(tenantId: string) {
   if (!tenantId) {
     metrics.value = []
+    error.value = false
     return
   }
   loading.value = true
+  error.value = false
   try {
     selectedTenantId.value = tenantId
     const res = await listMetrics(tenantId)
     metrics.value = res.data.data
+  } catch {
+    error.value = true
+    metrics.value = []
   } finally {
     loading.value = false
   }

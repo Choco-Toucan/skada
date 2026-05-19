@@ -1,14 +1,8 @@
 import http from './http'
-import type { ApiResponse, PageResult, Metric, MetricCreateRequest, MetricUpdateRequest } from '@/types'
+import type { ApiResponse, Metric, MetricCreateRequest, MetricUpdateRequest } from '@/types'
 
 export function listMetrics(tenantId: string) {
   return http.get<ApiResponse<Metric[]>>('/metric/list', { params: { tenantId } })
-}
-
-export function pageMetrics(page: number = 1, pageSize: number = 20) {
-  return http.get<ApiResponse<PageResult<Metric>>>('/metric/page', {
-    params: { page, pageSize },
-  })
 }
 
 export function getMetric(id: number) {
