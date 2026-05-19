@@ -26,6 +26,7 @@ jobs:
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             审查本次 PR 相对于 origin/main 的所有变更。
 
@@ -45,7 +46,6 @@ jobs:
           claude_args: |
             --model ${{ vars.CLAUDE_MODEL }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
 
       - name: 飞书通知
