@@ -11,6 +11,7 @@ name: Claude Code 审查
 permissions:
   contents: read
   pull-requests: write
+  id-token: write
 
 on:
   pull_request:
