@@ -8,6 +8,10 @@ name: Claude Code 审查
 #   ANTHROPIC_BASE_URL — API 代理地址
 #   CLAUDE_MODEL       — 模型名称，如 claude-sonnet-4-6
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
   pull_request:
     branches: [main]
