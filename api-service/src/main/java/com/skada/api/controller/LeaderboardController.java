@@ -5,6 +5,8 @@ import com.skada.api.model.request.RollLeaderboardRequest;
 import com.skada.api.model.response.RollLeaderboardResponse;
 import com.skada.api.service.LeaderboardQueryService;
 import com.skada.api.service.LeaderboardRollService;
+import com.skada.common.enums.BizCode;
+import com.skada.common.exception.BusinessException;
 import com.skada.common.model.BaseResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -64,12 +66,11 @@ public class LeaderboardController {
      * 租户通过API手动触发排行榜滚动
      */
     @PostMapping("/roll")
-    public BaseResponse<RollLeaderboardResponse> roll(@RequestBody RollLeaderboardRequest request) {
-        if (request.getTenantId() == null || request.getTenantId().isBlank()) {
-            throw new IllegalArgumentException("tenantId 不能为空");
-        }
-        if (request.getSecretKey() == null || request.getSecretKey().isBlank()) {
-            throw new IllegalArgumentException("secretKey 不能为空");
+    public BaseResponse<RollLeaderboardResponse> roll(@RequestBody RollLeaderboardRequest request,
+                                                       HttpServletRequest httpRequest) {
+        String tenantId = (String) httpRequest.getAttribute("saasTenantId");
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new BusinessException(BizCode.TENANT_AUTH_FAILED, "缺少租户鉴权信息");
         }
         if (request.getPlanId() == null || request.getPlanId().isBlank()) {
             throw new IllegalArgumentException("planId 不能为空");
@@ -77,6 +78,6 @@ public class LeaderboardController {
         if (request.getInstanceId() == null) {
             throw new IllegalArgumentException("instanceId 不能为null");
         }
-        return BaseResponse.success(rollService.roll(request));
+        return BaseResponse.success(rollService.roll(request, tenantId));
     }
 }
