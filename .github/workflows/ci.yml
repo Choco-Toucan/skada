@@ -94,7 +94,7 @@ jobs:
           BE_RESULT: ${{ needs.backend.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           WEBHOOK: ${{ secrets.FEISHU_WEBHOOK_URL }}
-          BRANCH: ${{ github.ref_name }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
@@ -102,7 +102,11 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # 构建通知标题和状态
+          if [ -z "$WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK_URL 未配置，跳过通知"
+            exit 0
+          fi
+
           if [ "$EVENT" = "pull_request" ]; then
             TITLE="CI #${PR_NUMBER} ${PR_TITLE}"
           else

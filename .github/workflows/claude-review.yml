@@ -58,6 +58,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK_URL 未配置，跳过通知"
+            exit 0
+          fi
           if [ "$REVIEW_RESULT" = "success" ]; then
             STATUS="✅ Claude Code 审查完成"
             COLOR="green"
