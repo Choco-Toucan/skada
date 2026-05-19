@@ -4,17 +4,12 @@ import java.util.List;
 
 /**
  * 批量分数上报请求
+ * <p>租户身份由 Filter 从 header 校验后注入，body 仅包含业务参数。</p>
  */
 public class BatchScoreSubmitRequest {
 
-    private String tenantId;
-    private String secretKey;
     private List<BatchItem> scores;
 
-    public String getTenantId() { return tenantId; }
-    public void setTenantId(String tenantId) { this.tenantId = tenantId; }
-    public String getSecretKey() { return secretKey; }
-    public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
     public List<BatchItem> getScores() { return scores; }
     public void setScores(List<BatchItem> scores) { this.scores = scores; }
 
