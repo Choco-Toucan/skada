@@ -1,5 +1,13 @@
 name: Claude Code 审查
 
+# 需要配置的 Secrets（加密存储）:
+#   ANTHROPIC_API_KEY  — API 密钥
+#   FEISHU_WEBHOOK_URL — 飞书机器人 webhook 地址
+#
+# 需要配置的 Variables（明文存储）:
+#   ANTHROPIC_BASE_URL — API 代理地址
+#   CLAUDE_MODEL       — 模型名称，如 claude-sonnet-4-6
+
 on:
   pull_request:
     branches: [main]
@@ -35,10 +43,10 @@ jobs:
 
             将结果作为 PR Review 发布，每条问题标注文件路径和行号。
           claude_args: |
-            --model ${{ secrets.CLAUDE_MODEL }}
+            --model ${{ vars.CLAUDE_MODEL }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
 
       - name: 飞书通知
         if: always()

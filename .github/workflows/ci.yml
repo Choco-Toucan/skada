@@ -1,5 +1,8 @@
 name: CI
 
+# 需要配置的 Secrets:
+#   FEISHU_WEBHOOK_URL — 飞书机器人 webhook 地址
+
 on:
   push:
     branches: [main]
