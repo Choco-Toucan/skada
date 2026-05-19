@@ -75,8 +75,19 @@ jobs:
             exit 0
           fi
 
-          # 提取 AI 回复文本
-          REVIEW_TEXT=$(echo "$BODY" | jq -r '.content[0].text // .content // .message // empty' 2>/dev/null)
+          # 提取审查文本（兼容多种 API 响应格式）
+          # DeepSeek 会返回 thinking 和 text 两种类型的消息块，只取 text 类型
+          REVIEW_TEXT=$(echo "$BODY" | jq -r '
+            if .content then
+              [.content[] | select(.type == "text") | .text] | join("\n\n")
+            elif .choices then
+              .choices[0].message.content
+            elif .message then
+              .message
+            else
+              empty
+            end
+          ' 2>/dev/null)
           if [ -z "$REVIEW_TEXT" ]; then
             echo "无法解析 API 响应: $BODY"
             echo "result=failure" >> $GITHUB_OUTPUT
