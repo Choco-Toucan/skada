@@ -1,0 +1,38 @@
+name: Claude Code 审查
+
+# 仅在 PR 时触发，避免每次 push 都消耗 API
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code 代码审查
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            审查本次 PR 相对于 origin/main 的所有变更。
+
+            本项目是 monorepo：
+            - api-service：对外排行榜 API（Spring Boot + MyBatis + Redis）
+            - mng-service：管理后台 API（Spring Boot + MyBatis）
+            - common：共享拦截器/工具类
+            - mng-web：Vue3 + Ant Design Vue 管理前端
+
+            按严重程度（CRITICAL/HIGH/MEDIUM/LOW）检查：
+            1. 安全：SQL注入、密钥泄露、越权、XSS、敏感日志
+            2. Java：NPE、MyBatis Mapper 缺失字段、事务注解遗漏
+            3. Vue：类型安全、空值保护、XSS 风险
+            4. 通用：命名规范、死代码、函数过长
+
+            将结果作为 PR Review 发布，每条问题标注文件路径和行号。
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}

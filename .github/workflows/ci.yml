@@ -1,0 +1,72 @@
+name: CI
+
+# 项目为 monorepo，根 pom.xml 通过 <modules> 管理三个 Java 子项目
+# mng-web 是独立的 Vue3 前端，由 npm 构建
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ==================== Java 后端（monorepo 三模块）====================
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: skada_test
+          MYSQL_DATABASE: skada
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # 根 pom.xml 的 <modules> 声明了 common / api-service / mng-service
+      # Maven 会自动按依赖顺序构建三个模块
+      - name: 编译全部 Java 模块 & 测试
+        run: mvn clean package -DskipTests=false
+
+  # ==================== Vue3 前端 ====================
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mng-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: mng-web/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查 & 构建
+        run: npm run build
