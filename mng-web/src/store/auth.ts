@@ -13,6 +13,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username: string, password: string) {
     const res = await loginApi({ username, password })
     const data = res.data.data
+    if (!data) {
+      throw new Error('登录响应数据为空')
+    }
     token.value = data.token
     displayId.value = data.displayId
     role.value = data.role

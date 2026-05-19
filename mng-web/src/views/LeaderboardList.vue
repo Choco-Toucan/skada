@@ -20,6 +20,7 @@
           </a-select-option>
         </a-select>
       </div>
+      <a-alert v-if="error" type="error" message="加载失败" closable @close="fetchLeaderboards" style="margin-bottom: 16px" />
       <a-table
         :dataSource="list"
         :columns="columns"
@@ -27,6 +28,9 @@
         rowKey="id"
         :pagination="{ current: page, pageSize: pageSize, total: total, showSizeChanger: true, onChange: onPageChange, onShowSizeChange: onPageChange }"
       >
+        <template #emptyText>
+          <span v-if="!loading && !error">暂无排行榜数据</span>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 'active' ? 'green' : 'red'">
@@ -42,9 +46,9 @@
             }}</span>
           </template>
           <template v-if="column.key === 'actions'">
-            <a-button type="link" @click="handleRoll(record)" :disabled="record.status !== 'active'">滚动</a-button>
+            <a-button type="link" @click="handleRoll(record)" :loading="rollingId === record.id" :disabled="record.status !== 'active'">滚动</a-button>
             <a-popconfirm title="确定终止该排行榜？" @confirm="handleStop(record)">
-              <a-button type="link" danger :disabled="record.status !== 'active'">终止</a-button>
+              <a-button type="link" danger :loading="stoppingId === record.id" :disabled="record.status !== 'active'">终止</a-button>
             </a-popconfirm>
           </template>
         </template>
@@ -63,9 +67,12 @@ const list = ref<Leaderboard[]>([])
 const tenants = ref<Tenant[]>([])
 const filterTenantId = ref<string | undefined>(undefined)
 const loading = ref(false)
+const error = ref(false)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const rollingId = ref<number | null>(null)
+const stoppingId = ref<number | null>(null)
 
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
@@ -80,10 +87,14 @@ const columns = [
 
 async function fetchLeaderboards() {
   loading.value = true
+  error.value = false
   try {
     const res = await listLeaderboards(page.value, pageSize.value, filterTenantId.value)
     list.value = res.data.data.records
     total.value = res.data.data.total
+  } catch {
+    error.value = true
+    list.value = []
   } finally {
     loading.value = false
   }
@@ -101,13 +112,23 @@ async function fetchTenants() {
 }
 
 async function handleRoll(record: Leaderboard) {
-  await rollLeaderboard(record.id)
-  await fetchLeaderboards()
+  rollingId.value = record.id
+  try {
+    await rollLeaderboard(record.id)
+    await fetchLeaderboards()
+  } finally {
+    rollingId.value = null
+  }
 }
 
 async function handleStop(record: Leaderboard) {
-  await stopLeaderboard(record.id)
-  await fetchLeaderboards()
+  stoppingId.value = record.id
+  try {
+    await stopLeaderboard(record.id)
+    await fetchLeaderboards()
+  } finally {
+    stoppingId.value = null
+  }
 }
 
 onMounted(() => {

@@ -34,14 +34,18 @@ http.interceptors.response.use(
     if (body.code !== 200) {
       if (body.code === 401) {
         clearAuthAndRedirect(body.message || 'token已过期或无效')
-        return Promise.reject(new Error(body.message))
+        return Promise.reject(Object.assign(new Error(body.message), { __handled: true }))
       }
       message.error(body.message || '请求失败')
-      return Promise.reject(new Error(body.message))
+      return Promise.reject(Object.assign(new Error(body.message), { __handled: true }))
     }
     return response
   },
   (error) => {
+    // 如果响应拦截器已处理过，不再重复提示
+    if (error.__handled) {
+      return Promise.reject(error)
+    }
     if (error.response?.status === 401 || error.response?.data?.code === 401) {
       clearAuthAndRedirect(error.response?.data?.message || 'token已过期或无效')
       return Promise.reject(error)

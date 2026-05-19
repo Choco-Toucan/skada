@@ -9,6 +9,8 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
+import java.util.Set;
+
 /**
  * 接口日志拦截器
  * 记录请求参数、响应、调用耗时
@@ -18,6 +20,10 @@ public class LogInterceptor implements HandlerInterceptor {
     private static final Logger API_LOG = LogManager.getLogger("ApiLog");
 
     private static final ThreadLocal<Long> START_TIME = new ThreadLocal<>();
+
+    /** 需要在日志中脱敏的字段名 */
+    private static final Set<String> SENSITIVE_FIELDS = Set.of(
+            "secretKey", "password", "token", "secret_key", "password_hash");
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
@@ -55,7 +61,8 @@ public class LogInterceptor implements HandlerInterceptor {
         // 响应体
         String responseBody = getResponseBody(response);
 
-        API_LOG.info("{} {} -> {} ({}ms) params={} response={}", method, uri, status, cost, params, responseBody);
+        API_LOG.info("{} {} -> {} ({}ms) params={} response={}", method, uri, status, cost,
+                maskSensitive(params), maskSensitive(responseBody));
 
         START_TIME.remove();
     }
@@ -87,5 +94,19 @@ public class LogInterceptor implements HandlerInterceptor {
             }
         }
         return "[no body]";
+    }
+
+    /**
+     * 对 JSON 中敏感字段的值进行脱敏
+     */
+    private String maskSensitive(String body) {
+        if (body == null || body.isEmpty()) return body;
+        String masked = body;
+        for (String field : SENSITIVE_FIELDS) {
+            masked = masked.replaceAll(
+                    "(?i)\"" + field + "\"\\s*:\\s*\"[^\"]*\"",
+                    "\"" + field + "\":\"***\"");
+        }
+        return masked;
     }
 }

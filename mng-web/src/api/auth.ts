@@ -8,7 +8,3 @@ export function login(data: LoginRequest) {
 export function logout() {
   return http.post<ApiResponse<void>>('/auth/logout')
 }
-
-export function health() {
-  return http.get<ApiResponse<string>>('/auth/health')
-}

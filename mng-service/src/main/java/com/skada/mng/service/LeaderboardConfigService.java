@@ -2,6 +2,7 @@ package com.skada.mng.service;
 
 import com.skada.common.exception.BusinessException;
 import com.skada.common.model.PageResult;
+import com.skada.common.util.DistributedLock;
 import com.skada.mng.mapper.LeaderboardInstanceMapper;
 import com.skada.mng.mapper.LeaderboardMapper;
 import com.skada.mng.mapper.LeaderboardMetricMapper;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 排行榜配置服务
@@ -28,15 +30,18 @@ public class LeaderboardConfigService {
     private final LeaderboardInstanceMapper instanceMapper;
     private final LeaderboardMetricMapper leaderboardMetricMapper;
     private final TenantService tenantService;
+    private final DistributedLock distributedLock;
 
     public LeaderboardConfigService(LeaderboardMapper leaderboardMapper,
                                     LeaderboardInstanceMapper instanceMapper,
                                     LeaderboardMetricMapper leaderboardMetricMapper,
-                                    TenantService tenantService) {
+                                    TenantService tenantService,
+                                    DistributedLock distributedLock) {
         this.leaderboardMapper = leaderboardMapper;
         this.instanceMapper = instanceMapper;
         this.leaderboardMetricMapper = leaderboardMetricMapper;
         this.tenantService = tenantService;
+        this.distributedLock = distributedLock;
     }
 
     /**
@@ -159,6 +164,9 @@ public class LeaderboardConfigService {
      * 分页查询排行榜（可按租户筛选）
      */
     public PageResult<Leaderboard> findAllWithPage(int page, int pageSize, String tenantId) {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
         int offset = (page - 1) * pageSize;
         if (tenantId != null && !tenantId.isEmpty()) {
             List<Leaderboard> records = leaderboardMapper.findByTenantIdWithPage(tenantId, offset, pageSize);
@@ -201,29 +209,39 @@ public class LeaderboardConfigService {
             throw new BusinessException("排行榜已终止，无法滚动");
         }
 
-        // 关闭当前活跃实例
-        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeInstance != null) {
-            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
+        String lockValue = UUID.randomUUID().toString();
+        String lockName = "roll:leaderboard:" + leaderboardId;
+        if (!distributedLock.tryLock(lockName, lockValue, 10, TimeUnit.SECONDS)) {
+            throw new BusinessException("排行榜正在滚动中，请稍后重试");
         }
 
-        // 创建新实例
-        int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
-        LeaderboardInstance newInstance = new LeaderboardInstance();
-        newInstance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
-        newInstance.setLeaderboardId(leaderboardId);
-        newInstance.setInstanceSeq(maxSeq + 1);
-        newInstance.setStartTime(System.currentTimeMillis());
-        newInstance.setStatus("active");
-        newInstance.setCreateBy(adminId);
-        newInstance.setUpdateBy(adminId);
-        instanceMapper.insert(newInstance);
+        try {
+            // 再次校验活跃实例（双重检查，防止锁获取期间实例已被关闭）
+            LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+            if (activeInstance == null) {
+                throw new BusinessException("当前没有活跃实例，无需滚动");
+            }
 
-        // 更新排行榜的当前实例
-        lb.setCurrentInstanceId(newInstance.getId());
-        leaderboardMapper.update(lb);
+            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
 
-        return lb;
+            int maxSeq = instanceMapper.getMaxInstanceSeq(leaderboardId);
+            LeaderboardInstance newInstance = new LeaderboardInstance();
+            newInstance.setInstanceId("li_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
+            newInstance.setLeaderboardId(leaderboardId);
+            newInstance.setInstanceSeq(maxSeq + 1);
+            newInstance.setStartTime(System.currentTimeMillis());
+            newInstance.setStatus("active");
+            newInstance.setCreateBy(adminId);
+            newInstance.setUpdateBy(adminId);
+            instanceMapper.insert(newInstance);
+
+            lb.setCurrentInstanceId(newInstance.getId());
+            leaderboardMapper.update(lb);
+
+            return lb;
+        } finally {
+            distributedLock.unlock(lockName, lockValue);
+        }
     }
 
     /**
@@ -239,18 +257,27 @@ public class LeaderboardConfigService {
             throw new BusinessException("排行榜已经处于终止状态");
         }
 
-        // 关闭当前活跃实例
-        LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
-        if (activeInstance != null) {
-            instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
+        String lockValue = UUID.randomUUID().toString();
+        String lockName = "roll:leaderboard:" + leaderboardId;
+        if (!distributedLock.tryLock(lockName, lockValue, 10, TimeUnit.SECONDS)) {
+            throw new BusinessException("排行榜操作进行中，请稍后重试");
         }
 
-        // 标记排行榜已终止
-        lb.setStatus("stopped");
-        lb.setUpdateBy(adminId);
-        leaderboardMapper.update(lb);
+        try {
+            // 关闭当前活跃实例
+            LeaderboardInstance activeInstance = instanceMapper.findActiveByLeaderboardId(leaderboardId);
+            if (activeInstance != null) {
+                instanceMapper.closeInstance(activeInstance.getId(), System.currentTimeMillis());
+            }
 
-        return lb;
+            lb.setStatus("stopped");
+            lb.setUpdateBy(adminId);
+            leaderboardMapper.update(lb);
+
+            return lb;
+        } finally {
+            distributedLock.unlock(lockName, lockValue);
+        }
     }
 
     /**

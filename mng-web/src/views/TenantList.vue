@@ -7,6 +7,7 @@
           新建租户
         </a-button>
       </template>
+      <a-alert v-if="error" type="error" message="加载失败" closable @close="fetchTenants" style="margin-bottom: 16px" />
       <a-table
         :dataSource="tenants"
         :columns="columns"
@@ -14,6 +15,9 @@
         rowKey="id"
         :pagination="{ current: page, pageSize: pageSize, total: total, showSizeChanger: true, onChange: onPageChange }"
       >
+        <template #emptyText>
+          <span v-if="!loading && !error">暂无租户数据</span>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 1 ? 'green' : 'red'">
@@ -47,11 +51,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
-import { listTenants, createTenant, updateTenant, getTenant } from '@/api/tenant'
+import { listTenants, createTenant, updateTenant } from '@/api/tenant'
 import type { Tenant } from '@/types'
 
 const tenants = ref<Tenant[]>([])
 const loading = ref(false)
+const error = ref(false)
 const modalOpen = ref(false)
 const isEdit = ref(false)
 const editId = ref(0)
@@ -77,10 +82,14 @@ const form = reactive({
 
 async function fetchTenants() {
   loading.value = true
+  error.value = false
   try {
     const res = await listTenants(page.value, pageSize.value)
     tenants.value = res.data.data.records
     total.value = res.data.data.total
+  } catch {
+    error.value = true
+    tenants.value = []
   } finally {
     loading.value = false
   }

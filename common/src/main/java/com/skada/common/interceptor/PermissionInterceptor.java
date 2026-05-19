@@ -29,6 +29,9 @@ public class PermissionInterceptor implements HandlerInterceptor {
 
         RequirePermission annotation = hm.getMethodAnnotation(RequirePermission.class);
         if (annotation == null) {
+            annotation = hm.getBeanType().getAnnotation(RequirePermission.class);
+        }
+        if (annotation == null) {
             return true;
         }
 

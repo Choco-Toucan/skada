@@ -132,7 +132,7 @@ public class LeaderboardQueryService {
         // Redis无数据，从MySQL兜底
         String sortOrder = "asc".equals(primaryMetric.getSortOrder()) ? "ASC" : "DESC";
         List<ScoreRecord> dbRecords = scoreRecordMapper.findRanking(
-                leaderboardId, instanceId, sortOrder, from, size);
+                leaderboardId, instanceId, primaryMetric.getMetricId(), sortOrder, from, size);
 
         // 回填Redis
         if (!dbRecords.isEmpty()) {
