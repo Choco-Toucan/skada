@@ -3,6 +3,7 @@ package com.skada.api.controller;
 import com.skada.api.model.LeaderboardInstance;
 import com.skada.api.service.LeaderboardQueryService;
 import com.skada.common.model.BaseResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,8 +30,6 @@ public class LeaderboardController {
      * @param instanceId 实例外部ID（可选，默认当前活跃实例）
      * @param from 起始位置（0-based，含）
      * @param to 结束位置（0-based，含），范围受maxQueryUsers约束
-     * @param tenantId 租户ID（可选，仅当租户不允许匿名查询时必填）
-     * @param secretKey 租户密钥（可选，仅当租户不允许匿名查询时必填）
      */
     @GetMapping("/ranking")
     public BaseResponse<List<LeaderboardQueryService.RankEntry>> getRanking(
@@ -38,10 +37,10 @@ public class LeaderboardController {
             @RequestParam(required = false) String instanceId,
             @RequestParam int from,
             @RequestParam int to,
-            @RequestParam(required = false) String tenantId,
-            @RequestParam(required = false) String secretKey) {
+            HttpServletRequest httpRequest) {
+        String tenantId = (String) httpRequest.getAttribute("saasTenantId");
         List<LeaderboardQueryService.RankEntry> ranking =
-                queryService.getRanking(planId, instanceId, from, to, tenantId, secretKey);
+                queryService.getRanking(planId, instanceId, from, to, tenantId);
         return BaseResponse.success(ranking);
     }
 

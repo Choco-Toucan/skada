@@ -1,9 +1,11 @@
 package com.skada.common.model;
 
 import com.google.gson.annotations.SerializedName;
+import com.skada.common.enums.BizCode;
 
 /**
  * 统一API响应格式
+ * <p>HTTP状态码始终返回200，业务状态通过 {@code code} 字段区分（参考 {@link BizCode}）。</p>
  */
 public class BaseResponse<T> {
 
@@ -43,7 +45,7 @@ public class BaseResponse<T> {
     }
 
     public static <T> BaseResponse<T> error(String message) {
-        return error(400, message);
+        return error(BizCode.SYSTEM_ERROR, message);
     }
 
     public int getCode() {

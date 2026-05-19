@@ -3,7 +3,10 @@ package com.skada.api.controller;
 import com.skada.api.model.request.BatchScoreSubmitRequest;
 import com.skada.api.model.request.ScoreSubmitRequest;
 import com.skada.api.service.ScoreService;
+import com.skada.common.enums.BizCode;
+import com.skada.common.exception.BusinessException;
 import com.skada.common.model.BaseResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,11 +17,13 @@ import java.util.List;
 
 /**
  * 分数上报接口
+ * <p>租户身份由 SaasAuthFilter 从 header 校验后注入 request attribute。</p>
  */
 @RestController
 @RequestMapping("/api/v1/score")
 public class ScoreController {
 
+    private static final String ATTR_TENANT_ID = "saasTenantId";
     private static final int BATCH_MAX_SIZE = 1000;
 
     private final ScoreService scoreService;
@@ -31,11 +36,13 @@ public class ScoreController {
      * 单条分数上报
      */
     @PostMapping("/submit")
-    public BaseResponse<Void> submit(@RequestBody ScoreSubmitRequest request) {
+    public BaseResponse<Void> submit(@RequestBody ScoreSubmitRequest request,
+                                     HttpServletRequest httpRequest) {
+        String tenantId = requireTenantId(httpRequest);
         validateSubmitRequest(request);
 
         List<ScoreService.MetricValue> metrics = toServiceMetrics(request.getMetrics());
-        scoreService.submit(request.getTenantId(), request.getSecretKey(), request.getUserId(), metrics);
+        scoreService.submit(tenantId, request.getUserId(), metrics);
         return BaseResponse.success();
     }
 
@@ -43,7 +50,9 @@ public class ScoreController {
      * 批量分数上报
      */
     @PostMapping("/batch-submit")
-    public BaseResponse<Void> batchSubmit(@RequestBody BatchScoreSubmitRequest request) {
+    public BaseResponse<Void> batchSubmit(@RequestBody BatchScoreSubmitRequest request,
+                                          HttpServletRequest httpRequest) {
+        String tenantId = requireTenantId(httpRequest);
         validateBatchRequest(request);
 
         List<ScoreService.BatchSubmitItem> items = new ArrayList<>();
@@ -54,17 +63,20 @@ public class ScoreController {
             items.add(svcItem);
         }
 
-        scoreService.batchSubmit(request.getTenantId(), request.getSecretKey(), items);
+        scoreService.batchSubmit(tenantId, items);
         return BaseResponse.success();
     }
 
+    /** 从请求中提取已通过Filter校验的租户ID，写入接口强制要求鉴权 */
+    private String requireTenantId(HttpServletRequest request) {
+        String tenantId = (String) request.getAttribute(ATTR_TENANT_ID);
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new BusinessException(BizCode.TENANT_AUTH_FAILED, "缺少租户鉴权信息");
+        }
+        return tenantId;
+    }
+
     private void validateSubmitRequest(ScoreSubmitRequest request) {
-        if (request.getTenantId() == null || request.getTenantId().isBlank()) {
-            throw new IllegalArgumentException("tenantId 不能为空");
-        }
-        if (request.getSecretKey() == null || request.getSecretKey().isBlank()) {
-            throw new IllegalArgumentException("secretKey 不能为空");
-        }
         if (request.getUserId() == null || request.getUserId().isBlank()) {
             throw new IllegalArgumentException("userId 不能为空");
         }
@@ -82,12 +94,6 @@ public class ScoreController {
     }
 
     private void validateBatchRequest(BatchScoreSubmitRequest request) {
-        if (request.getTenantId() == null || request.getTenantId().isBlank()) {
-            throw new IllegalArgumentException("tenantId 不能为空");
-        }
-        if (request.getSecretKey() == null || request.getSecretKey().isBlank()) {
-            throw new IllegalArgumentException("secretKey 不能为空");
-        }
         if (request.getScores() == null || request.getScores().isEmpty()) {
             throw new IllegalArgumentException("scores 不能为空");
         }

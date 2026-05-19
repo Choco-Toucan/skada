@@ -5,18 +5,13 @@ import java.util.List;
 
 /**
  * 单条分数上报请求
+ * <p>租户身份由 Filter 从 header 校验后注入，body 仅包含业务参数。</p>
  */
 public class ScoreSubmitRequest {
 
-    private String tenantId;
-    private String secretKey;
     private String userId;
     private List<MetricValueRequest> metrics;
 
-    public String getTenantId() { return tenantId; }
-    public void setTenantId(String tenantId) { this.tenantId = tenantId; }
-    public String getSecretKey() { return secretKey; }
-    public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
     public List<MetricValueRequest> getMetrics() { return metrics; }

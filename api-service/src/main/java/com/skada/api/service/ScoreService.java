@@ -34,7 +34,6 @@ public class ScoreService {
     private static final String USER_COUNT_KEY_PREFIX = "skada:leaderboard:%d:instance:%d:users";
     private static final int BATCH_MAX_SIZE = 1000;
 
-    private final TenantAuthService tenantAuthService;
     private final LeaderboardMapper leaderboardMapper;
     private final LeaderboardInstanceMapper instanceMapper;
     private final LeaderboardMetricMapper leaderboardMetricMapper;
@@ -43,15 +42,13 @@ public class ScoreService {
     private final StringRedisTemplate redisTemplate;
     private final DistributedLock distributedLock;
 
-    public ScoreService(TenantAuthService tenantAuthService,
-                        LeaderboardMapper leaderboardMapper,
+    public ScoreService(LeaderboardMapper leaderboardMapper,
                         LeaderboardInstanceMapper instanceMapper,
                         LeaderboardMetricMapper leaderboardMetricMapper,
                         MetricMapper metricMapper,
                         ScoreRecordMapper scoreRecordMapper,
                         StringRedisTemplate redisTemplate,
                         DistributedLock distributedLock) {
-        this.tenantAuthService = tenantAuthService;
         this.leaderboardMapper = leaderboardMapper;
         this.instanceMapper = instanceMapper;
         this.leaderboardMetricMapper = leaderboardMetricMapper;
@@ -64,15 +61,10 @@ public class ScoreService {
     /**
      * 单条分数上报（含多指标值）
      * 服务端根据上报的指标集合自动解析对应的排行榜计划
+     * <p>租户身份由 SaasAuthFilter 校验后注入，此处直接使用。</p>
      */
     @Transactional
-    public void submit(String tenantId, String secretKey,
-                       String userId, List<MetricValue> metrics) {
-        Tenant tenant = tenantAuthService.authenticate(tenantId, secretKey);
-        if (tenant == null) {
-            throw new BusinessException(401, "租户鉴权失败");
-        }
-
+    public void submit(String tenantId, String userId, List<MetricValue> metrics) {
         // 解析外部metricId为内部Long id
         Map<String, Long> metricIdMap = resolveMetricIds(metrics);
         List<Long> internalMetricIds = new ArrayList<>(metricIdMap.values());
@@ -105,16 +97,12 @@ public class ScoreService {
 
     /**
      * 批量分数上报（同一排行榜计划）
+     * <p>租户身份由 SaasAuthFilter 校验后注入，此处直接使用。</p>
      */
     @Transactional
-    public void batchSubmit(String tenantId, String secretKey, List<BatchSubmitItem> items) {
+    public void batchSubmit(String tenantId, List<BatchSubmitItem> items) {
         if (items.size() > BATCH_MAX_SIZE) {
             throw new BusinessException("单次批量上报不能超过" + BATCH_MAX_SIZE + "条");
-        }
-
-        Tenant tenant = tenantAuthService.authenticate(tenantId, secretKey);
-        if (tenant == null) {
-            throw new BusinessException(401, "租户鉴权失败");
         }
 
         // 解析外部metricId为内部Long id

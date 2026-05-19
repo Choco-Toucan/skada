@@ -2,6 +2,7 @@ package com.skada.api.service;
 
 import com.skada.api.mapper.*;
 import com.skada.api.model.*;
+import com.skada.common.enums.BizCode;
 import com.skada.common.exception.BusinessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -46,9 +47,10 @@ public class LeaderboardQueryService {
 
     /**
      * 查询排行榜排名（多指标）
+     * @param requestTenantId Filter校验后注入的租户ID，可为null（匿名访问）
      */
     public List<RankEntry> getRanking(String planId, String instanceIdStr, int from, int to,
-                                       String tenantId, String secretKey) {
+                                       String requestTenantId) {
         // 参数校验
         if (from < 0 || to < 0 || from > to) {
             throw new BusinessException("分页参数无效: from 必须 ≤ to 且都为非负数");
@@ -61,17 +63,14 @@ public class LeaderboardQueryService {
         }
         Long leaderboardId = lb.getId();
 
-        // 租户鉴权
+        // 租户鉴权：Filter已校验签名，此处仅判断是否需要登录
         Tenant tenant = tenantMapper.findByTenantId(lb.getTenantId());
         if (tenant == null || !tenant.isEnabled()) {
             throw new BusinessException("租户不存在或已停用");
         }
         if (tenant.getAllowAnonymousQuery() == 0) {
-            if (tenantId == null || secretKey == null) {
-                throw new BusinessException(401, "该排行榜不允许匿名查询，请提供租户凭证");
-            }
-            if (!tenant.getTenantId().equals(tenantId) || !tenant.getSecretKey().equals(secretKey)) {
-                throw new BusinessException(401, "租户凭证无效");
+            if (requestTenantId == null || !requestTenantId.equals(lb.getTenantId())) {
+                throw new BusinessException(BizCode.TENANT_AUTH_FAILED, "租户凭证无效或无权查询");
             }
         }
 
