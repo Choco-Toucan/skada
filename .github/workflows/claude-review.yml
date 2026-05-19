@@ -132,7 +132,7 @@ jobs:
           fi
 
           echo "执行自动合并"
-          gh pr merge $PR_NUMBER --auto --squash
+          gh pr merge $PR_NUMBER --auto --merge
 
       - name: 飞书通知
         if: always()
