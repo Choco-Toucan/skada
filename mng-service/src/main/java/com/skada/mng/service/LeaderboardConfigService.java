@@ -102,6 +102,8 @@ public class LeaderboardConfigService {
             lm.setMetricId(ma.getMetricId());
             lm.setPriority(ma.getPriority() != null ? ma.getPriority() : 1);
             lm.setSortOrder(ma.getSortOrder() != null ? ma.getSortOrder() : "desc");
+            lm.setCreateBy(adminId);
+            lm.setUpdateBy(adminId);
             metrics.add(lm);
         }
         leaderboardMetricMapper.insertBatch(metrics);
@@ -145,6 +147,8 @@ public class LeaderboardConfigService {
                 lm.setMetricId(ma.getMetricId());
                 lm.setPriority(ma.getPriority() != null ? ma.getPriority() : 1);
                 lm.setSortOrder(ma.getSortOrder() != null ? ma.getSortOrder() : "desc");
+                lm.setCreateBy(adminId);
+                lm.setUpdateBy(adminId);
                 metrics.add(lm);
             }
             leaderboardMetricMapper.insertBatch(metrics);

@@ -9,6 +9,8 @@
         <result column="metric_id" property="metricId"/>
         <result column="priority" property="priority"/>
         <result column="sort_order" property="sortOrder"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
     </resultMap>
 
     <select id="findByLeaderboardId" resultMap="BaseMap">

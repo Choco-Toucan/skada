@@ -107,9 +107,10 @@ CREATE TABLE IF NOT EXISTS leaderboard_metric (
     sort_order      VARCHAR(8)  NOT NULL DEFAULT 'desc' COMMENT '排序方向: asc=升序, desc=降序',
     create_time     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    create_by       VARCHAR(64) NOT NULL DEFAULT 'system' COMMENT '创建人',
+    update_by       VARCHAR(64) NOT NULL DEFAULT 'system' COMMENT '更新人',
     PRIMARY KEY (id),
     UNIQUE KEY uk_leaderboard_metric (leaderboard_id, metric_id),
-    KEY idx_leaderboard_id (leaderboard_id),
     KEY idx_metric_id (metric_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜关联指标';
 
@@ -131,7 +132,7 @@ CREATE TABLE IF NOT EXISTS leaderboard_instance (
     update_by         VARCHAR(64)  NOT NULL DEFAULT 'system' COMMENT '更新人',
     PRIMARY KEY (id),
     UNIQUE KEY uk_instance_id (instance_id),
-    KEY idx_leaderboard_id (leaderboard_id),
+    UNIQUE KEY uk_instance_seq (leaderboard_id, instance_seq),
     KEY idx_leaderboard_status (leaderboard_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜实例';
 
@@ -146,16 +147,15 @@ CREATE TABLE IF NOT EXISTS score_record (
     instance_id    BIGINT        NOT NULL COMMENT '排行榜实例ID',
     metric_id      BIGINT        NOT NULL COMMENT '指标ID',
     user_id        VARCHAR(128)  NOT NULL COMMENT '用户ID(由租户定义)',
-    score          DECIMAL(20,4) NOT NULL COMMENT '指标值',
+    score          DECIMAL(12,2) NOT NULL COMMENT '指标值',
     payload        TEXT          NULL     COMMENT '透传数据(JSON格式)',
     create_time    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    KEY idx_leaderboard_instance (leaderboard_id, instance_id),
-    KEY idx_leaderboard_instance_metric (leaderboard_id, instance_id, metric_id),
+    UNIQUE KEY uk_user_instance_metric (leaderboard_id, instance_id, metric_id, user_id),
     KEY idx_leaderboard_instance_metric_score (leaderboard_id, instance_id, metric_id, score),
     KEY idx_tenant_id (tenant_id),
-    KEY idx_user_id (user_id)
+    KEY idx_tenant_user (tenant_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='分数记录';
 
 -- ------------------------------------------------------------

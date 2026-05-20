@@ -11,18 +11,20 @@
         <result column="sort_order" property="sortOrder"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order)
-        VALUES (#{leaderboardId}, #{metricId}, #{priority}, #{sortOrder})
+        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order, create_by, update_by)
+        VALUES (#{leaderboardId}, #{metricId}, #{priority}, #{sortOrder}, #{createBy}, #{updateBy})
     </insert>
 
     <insert id="insertBatch" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order)
+        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order, create_by, update_by)
         VALUES
         <foreach collection="list" item="item" separator=",">
-            (#{item.leaderboardId}, #{item.metricId}, #{item.priority}, #{item.sortOrder})
+            (#{item.leaderboardId}, #{item.metricId}, #{item.priority}, #{item.sortOrder}, #{item.createBy}, #{item.updateBy})
         </foreach>
     </insert>
 
