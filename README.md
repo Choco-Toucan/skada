@@ -7,7 +7,7 @@
 ```
 skada/
 ├── common/          # 公共模块（拦截器、统一响应、分布式锁、过滤器）
-├── api-service/     # C端 API 服务（分数上报、排行榜查询）端口 8801
+├── api-service/     # C端 API 服务（分数上报、排行榜查询、手动滚动）端口 8801
 ├── mng-service/     # B端 管理服务（租户管理、指标管理、排行榜配置）端口 8811
 ├── mng-web/         # 管理台前端（Vue3 + Ant Design Vue）端口 3000
 └── doc/             # 需求文档、技术规范、Postman 集合
