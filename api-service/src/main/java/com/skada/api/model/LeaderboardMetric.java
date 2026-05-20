@@ -10,6 +10,8 @@ public class LeaderboardMetric {
     private Long metricId;
     private Integer priority;
     private String sortOrder;
+    private String createBy;
+    private String updateBy;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -21,4 +23,8 @@ public class LeaderboardMetric {
     public void setPriority(Integer priority) { this.priority = priority; }
     public String getSortOrder() { return sortOrder; }
     public void setSortOrder(String sortOrder) { this.sortOrder = sortOrder; }
+    public String getCreateBy() { return createBy; }
+    public void setCreateBy(String createBy) { this.createBy = createBy; }
+    public String getUpdateBy() { return updateBy; }
+    public void setUpdateBy(String updateBy) { this.updateBy = updateBy; }
 }

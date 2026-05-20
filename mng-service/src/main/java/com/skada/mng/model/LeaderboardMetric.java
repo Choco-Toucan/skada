@@ -13,6 +13,8 @@ public class LeaderboardMetric {
     private String sortOrder;
     private String createTime;
     private String updateTime;
+    private String createBy;
+    private String updateBy;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -28,4 +30,8 @@ public class LeaderboardMetric {
     public void setCreateTime(String createTime) { this.createTime = createTime; }
     public String getUpdateTime() { return updateTime; }
     public void setUpdateTime(String updateTime) { this.updateTime = updateTime; }
+    public String getCreateBy() { return createBy; }
+    public void setCreateBy(String createBy) { this.createBy = createBy; }
+    public String getUpdateBy() { return updateBy; }
+    public void setUpdateBy(String updateBy) { this.updateBy = updateBy; }
 }
