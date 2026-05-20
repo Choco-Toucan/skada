@@ -118,6 +118,17 @@ curl -X POST {API_BASE_URL}/api/v1/leaderboard/roll \
 ## 启动
 
 ```bash
+# 默认 local 环境
 mvn spring-boot:run -pl api-service
 # 端口 8801
+
+# test 环境
+mvn spring-boot:run -pl api-service -Dspring-boot.run.arguments="--spring.profiles.active=test"
 ```
+
+### 环境
+
+| 环境 | profile | MySQL | Redis |
+|------|---------|-------|-------|
+| local | `local` (默认) | localhost:3306 | localhost:6379 |
+| test | `test` | 阿里云 RDS | 待定 |

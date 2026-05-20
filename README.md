@@ -34,7 +34,7 @@ mysql -u root -p < mng-service/src/main/resources/sql/schema.sql
 # 2. 构建后端
 mvn clean package -DskipTests
 
-# 3. 启动服务
+# 3. 启动服务（默认 local 环境）
 java -jar api-service/target/skada-api-service-1.0.0-SNAPSHOT.jar &
 java -jar mng-service/target/skada-mng-service-1.0.0-SNAPSHOT.jar &
 
@@ -43,6 +43,25 @@ cd mng-web && npm install && npm run dev
 ```
 
 **管理台登录**：`admin` / `admin123`
+
+### 环境切换
+
+项目支持 `local` 和 `test` 两套环境，默认激活 `local`。
+
+```bash
+# 后端 — 通过 Spring profiles 切换
+java -jar api-service/target/skada-api-service-1.0.0-SNAPSHOT.jar --spring.profiles.active=test
+java -jar mng-service/target/skada-mng-service-1.0.0-SNAPSHOT.jar --spring.profiles.active=test
+
+# 前端 — 通过 Vite mode 切换
+cd mng-web && npm run dev:test       # 开发模式
+cd mng-web && npm run build:test     # 构建 test 环境产物
+```
+
+| 环境 | MySQL | Redis | 说明 |
+|------|-------|-------|------|
+| `local` | localhost:3306 | localhost:6379 | 本地开发 |
+| `test` | 阿里云 RDS | 待定 | 测试环境 |
 
 ## 技术栈
 
