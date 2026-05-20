@@ -1,0 +1,13 @@
+server:
+  port: 8811
+
+spring:
+  datasource:
+    url: jdbc:mysql://pc-2zeycsbj0wa8951v2.rwlb.rds.aliyuncs.com:3306/skada?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: skada_service
+    password: '@tkzKBYWlvgv_pwT5+vl9OjU=YeC'
+  data:
+    redis:
+      host: placeholder
+      port: 6379
+      password: placeholder

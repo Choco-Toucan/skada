@@ -1,18 +1,8 @@
-server:
-  port: 8811
-
 spring:
   application:
     name: skada-mng-service
-  datasource:
-    url: jdbc:mysql://localhost:3306/skada?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 090763xiaoFENG
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: 123456
+  profiles:
+    active: local
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
