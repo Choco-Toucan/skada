@@ -285,10 +285,10 @@ jobs:
             -X POST "$DEPLOY_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -H "X-Deploy-Secret: $DEPLOY_WEBHOOK_SECRET" \
-            -d "{\"commit\":\"${COMMIT_ID}\",\"services\":$SERVICES}")
+            -d "{\"commit\":\"${COMMIT_ID}\",\"services\":$SERVICES}" 2>&1) || HTTP_CODE="000"
 
           echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-          BODY=$(cat "$RESPONSE")
+          BODY=$(cat "$RESPONSE" 2>/dev/null || echo "curl 请求失败，无法获取响应体")
           echo "response_body<<EOF" >> $GITHUB_OUTPUT
           echo "$BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -317,6 +317,7 @@ jobs:
           API_EXISTS: ${{ steps.check_oss.outputs.api_exists }}
           MNG_EXISTS: ${{ steps.check_oss.outputs.mng_exists }}
           WEB_EXISTS: ${{ steps.check_oss.outputs.web_exists }}
+          WEBHOOK_RESULT: ${{ steps.deploy_webhook.outcome }}
           WEBHOOK_CODE: ${{ steps.deploy_webhook.outputs.http_code }}
           WEBHOOK_BODY_RAW: ${{ steps.deploy_webhook.outputs.response_body }}
           WEBHOOK_FAILED: ${{ steps.deploy_webhook.outputs.webhook_failed }}
@@ -349,7 +350,7 @@ jobs:
           elif [ "$ALL_SKIP" = "true" ]; then
             STATUS="⚠️ 跳过部署"
             STATUS_COLOR="yellow"
-          elif [ "$WEBHOOK_FAILED" = "true" ]; then
+          elif [ "$WEBHOOK_RESULT" = "failure" ] || [ "$WEBHOOK_FAILED" = "true" ]; then
             STATUS="❌ Webhook 失败"
             STATUS_COLOR="red"
           else
