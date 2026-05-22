@@ -244,13 +244,13 @@ jobs:
       - name: 发送飞书通知
         if: always()
         env:
-          OSSUTIL_RESULT: ${{ steps.ossutil_setup.result }}
-          CHECK_OSS_RESULT: ${{ steps.check_oss.result }}
-          BE_RESULT: ${{ steps.maven_build.result }}
-          FRONTEND_RESULT: ${{ steps.frontend_build.result }}
-          UPLOAD_API_RESULT: ${{ steps.upload_api.result }}
-          UPLOAD_MNG_RESULT: ${{ steps.upload_mng.result }}
-          UPLOAD_WEB_RESULT: ${{ steps.upload_web.result }}
+          OSSUTIL_RESULT: ${{ steps.ossutil_setup.outcome }}
+          CHECK_OSS_RESULT: ${{ steps.check_oss.outcome }}
+          BE_RESULT: ${{ steps.maven_build.outcome }}
+          FRONTEND_RESULT: ${{ steps.frontend_build.outcome }}
+          UPLOAD_API_RESULT: ${{ steps.upload_api.outcome }}
+          UPLOAD_MNG_RESULT: ${{ steps.upload_mng.outcome }}
+          UPLOAD_WEB_RESULT: ${{ steps.upload_web.outcome }}
           ALL_SKIP: ${{ steps.check_oss.outputs.all_skip }}
           API_EXISTS: ${{ steps.check_oss.outputs.api_exists }}
           MNG_EXISTS: ${{ steps.check_oss.outputs.mng_exists }}
