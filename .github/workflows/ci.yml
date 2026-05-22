@@ -21,7 +21,7 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd "mysqladmin ping -h localhost"
+          --health-cmd "mysql -h localhost -u root -p$$MYSQL_ROOT_PASSWORD -e \"SELECT 1\""
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -108,9 +108,9 @@ jobs:
           fi
 
           if [ "$EVENT" = "pull_request" ]; then
-            TITLE="CI #${PR_NUMBER} ${PR_TITLE}"
+            TITLE="CI #${PR_NUMBER} $(echo "$PR_TITLE" | sed 's/\\/\\\\/g; s/"/\\"/g')"
           else
-            TITLE="CI ${BRANCH} — ${COMMIT_MSG:0:50}"
+            TITLE="CI ${BRANCH} — $(echo "${COMMIT_MSG:0:50}" | sed 's/\\/\\\\/g; s/"/\\"/g')"
           fi
 
           # 判断状态
@@ -128,7 +128,7 @@ jobs:
           BE_EMOJI="✅"; [ "$BE_RESULT" != "success" ] && BE_EMOJI="❌"
           FRONTEND_EMOJI="✅"; [ "$FRONTEND_RESULT" != "success" ] && FRONTEND_EMOJI="⚠️"
 
-          curl -s -X POST "$WEBHOOK" \
+          curl -s --connect-timeout 30 --max-time 60 --retry 2 -X POST "$WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d "$(cat <<JSON
           {
