@@ -63,12 +63,6 @@ jobs:
       - name: 检查 OSS 远端制品是否存在
         id: check_oss
         run: |
-          # 先验证凭证连通性
-          if ! ossutil ls "oss://${OSS_BUCKET}/package/" --limited-num 1 >/dev/null 2>&1; then
-            echo "OSS 凭证连通性验证失败，请检查 AK/SK/Endpoint/Bucket 配置及 RAM 权限"
-            exit 1
-          fi
-
           API_PATH="oss://${OSS_BUCKET}/package/api-service/${COMMIT_ID}.jar"
           MNG_PATH="oss://${OSS_BUCKET}/package/mng-service/${COMMIT_ID}.jar"
           WEB_PATH="oss://${OSS_BUCKET}/package/mng-web/${COMMIT_ID}.tar.gz"
