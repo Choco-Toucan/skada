@@ -20,7 +20,7 @@ jobs:
 
     env:
       COMMIT_ID: ${{ github.sha }}
-      OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+      OSS_ENDPOINT: ${{ vars.OSS_ENDPOINT }}
       OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
       DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL_TEST }}
       DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET_TEST }}
@@ -150,7 +150,7 @@ jobs:
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
         env:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_ENDPOINT: ${{ vars.OSS_ENDPOINT }}
 
       - name: 打包 mng-service 并上传
         id: upload_mng
@@ -163,7 +163,7 @@ jobs:
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
         env:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_ENDPOINT: ${{ vars.OSS_ENDPOINT }}
 
       - name: 打包 mng-web 并上传
         id: upload_web
@@ -177,7 +177,7 @@ jobs:
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
         env:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_ENDPOINT: ${{ vars.OSS_ENDPOINT }}
 
       # ==================== 9. 调用部署 webhook ====================
       - name: 调用部署 webhook
