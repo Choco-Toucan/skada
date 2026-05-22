@@ -281,26 +281,45 @@ jobs:
           echo "services=$SERVICES" >> $GITHUB_OUTPUT
 
           RESPONSE=$(mktemp)
-          HTTP_CODE=$(curl -s -w "%{http_code}" -o "$RESPONSE" \
+          ERRLOG=$(mktemp)
+
+          HTTP_CODE=$(curl -s --connect-timeout 10 --max-time 30 \
+            -w "%{http_code}" -o "$RESPONSE" \
             -X POST "$DEPLOY_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -H "X-Deploy-Secret: $DEPLOY_WEBHOOK_SECRET" \
-            -d "{\"commit\":\"${COMMIT_ID}\",\"services\":$SERVICES}" 2>&1) || HTTP_CODE="000"
+            -d "{\"commit\":\"${COMMIT_ID}\",\"services\":$SERVICES}" 2>"$ERRLOG")
+          CURL_EXIT=$?
 
           echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-          BODY=$(cat "$RESPONSE" 2>/dev/null || echo "curl 请求失败，无法获取响应体")
+          echo "curl_exit=$CURL_EXIT" >> $GITHUB_OUTPUT
+
+          BODY=$(cat "$RESPONSE" 2>/dev/null)
           echo "response_body<<EOF" >> $GITHUB_OUTPUT
           echo "$BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-          echo "Webhook HTTP $HTTP_CODE"
-          echo "$BODY"
+          echo "curl exit code : $CURL_EXIT"
+          echo "Webhook HTTP   : $HTTP_CODE"
+          echo "Response body  : $BODY"
+          if [ -s "$ERRLOG" ]; then
+            echo "curl stderr    :"
+            cat "$ERRLOG"
+          fi
+
+          if [ "$CURL_EXIT" -ne 0 ]; then
+            echo "webhook_failed=true" >> $GITHUB_OUTPUT
+            echo "curl 请求失败（exit=$CURL_EXIT），请检查 DEPLOY_WEBHOOK_URL_TEST 是否正确、目标服务是否可达"
+            exit 1
+          fi
 
           if [ "$HTTP_CODE" != "200" ]; then
             echo "webhook_failed=true" >> $GITHUB_OUTPUT
-          else
-            echo "webhook_failed=false" >> $GITHUB_OUTPUT
+            echo "Webhook 返回非 200: $HTTP_CODE"
+            exit 1
           fi
+
+          echo "webhook_failed=false" >> $GITHUB_OUTPUT
 
       # ==================== 10. 飞书通知 ====================
       - name: 发送飞书通知
