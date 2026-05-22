@@ -12,24 +12,6 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: skada_test
-          MYSQL_DATABASE: skada
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysql -h localhost -u root -p$MYSQL_ROOT_PASSWORD -e \"SELECT 1\""
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-
     steps:
       - uses: actions/checkout@v4
 
