@@ -38,9 +38,12 @@ jobs:
       # ==================== 2. 安装 ossutil ====================
       - name: 安装 ossutil
         run: |
-          curl -sL -o /usr/local/bin/ossutil \
-            https://gosspublic.alicdn.com/ossutil/v2/ossutil-v2-linux-amd64
-          chmod +x /usr/local/bin/ossutil
+          OSSUTIL_VER="2.3.0"
+          curl -sL -o /tmp/ossutil.zip \
+            "https://gosspublic.alicdn.com/ossutil/v2/${OSSUTIL_VER}/ossutil-${OSSUTIL_VER}-linux-amd64.zip"
+          unzip -qo /tmp/ossutil.zip -d /tmp/ossutil
+          sudo mv "/tmp/ossutil/ossutil-${OSSUTIL_VER}-linux-amd64/ossutil" /usr/local/bin/ossutil
+          sudo chmod +x /usr/local/bin/ossutil
           ossutil config -e "$OSS_ENDPOINT" \
             -i "${{ secrets.OSS_ACCESS_KEY_ID }}" \
             -k "${{ secrets.OSS_ACCESS_KEY_SECRET }}" \
