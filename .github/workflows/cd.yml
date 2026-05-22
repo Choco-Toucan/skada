@@ -288,6 +288,7 @@ jobs:
           WH_HOST=$(echo "$DEPLOY_WEBHOOK_URL" | sed 's|^[^/]*://||; s|/.*||')
           echo "webhook url    : ${WH_SCHEME}://${WH_HOST}/..."
 
+          set +e
           HTTP_CODE=$(curl -vk --connect-timeout 10 --max-time 30 \
             -w "%{http_code}" -o "$RESPONSE" \
             -X POST "$DEPLOY_WEBHOOK_URL" \
@@ -295,6 +296,7 @@ jobs:
             -H "X-Deploy-Secret: $DEPLOY_WEBHOOK_SECRET" \
             -d "{\"commit\":\"${COMMIT_ID}\",\"services\":$SERVICES}" 2>"$ERRLOG")
           CURL_EXIT=$?
+          set -e
 
           echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
           echo "curl_exit=$CURL_EXIT" >> $GITHUB_OUTPUT
