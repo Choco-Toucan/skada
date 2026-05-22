@@ -288,7 +288,7 @@ jobs:
           WH_HOST=$(echo "$DEPLOY_WEBHOOK_URL" | sed 's|^[^/]*://||; s|/.*||')
           echo "webhook url    : ${WH_SCHEME}://${WH_HOST}/..."
 
-          HTTP_CODE=$(curl -v --connect-timeout 10 --max-time 30 \
+          HTTP_CODE=$(curl -vk --connect-timeout 10 --max-time 30 \
             -w "%{http_code}" -o "$RESPONSE" \
             -X POST "$DEPLOY_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
