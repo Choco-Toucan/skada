@@ -283,7 +283,12 @@ jobs:
           RESPONSE=$(mktemp)
           ERRLOG=$(mktemp)
 
-          HTTP_CODE=$(curl -s --connect-timeout 10 --max-time 30 \
+          # 打印 webhook 地址（脱敏）：只显示协议和域名
+          WH_SCHEME=$(echo "$DEPLOY_WEBHOOK_URL" | sed 's|://.*||')
+          WH_HOST=$(echo "$DEPLOY_WEBHOOK_URL" | sed 's|^[^/]*://||; s|/.*||')
+          echo "webhook url    : ${WH_SCHEME}://${WH_HOST}/..."
+
+          HTTP_CODE=$(curl -v --connect-timeout 10 --max-time 30 \
             -w "%{http_code}" -o "$RESPONSE" \
             -X POST "$DEPLOY_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
@@ -302,14 +307,13 @@ jobs:
           echo "curl exit code : $CURL_EXIT"
           echo "Webhook HTTP   : $HTTP_CODE"
           echo "Response body  : $BODY"
-          if [ -s "$ERRLOG" ]; then
-            echo "curl stderr    :"
-            cat "$ERRLOG"
-          fi
+          echo "--- curl stderr ---"
+          cat "$ERRLOG"
+          echo "--- curl stderr end ---"
 
           if [ "$CURL_EXIT" -ne 0 ]; then
             echo "webhook_failed=true" >> $GITHUB_OUTPUT
-            echo "curl 请求失败（exit=$CURL_EXIT），请检查 DEPLOY_WEBHOOK_URL_TEST 是否正确、目标服务是否可达"
+            echo "curl 请求失败（exit=$CURL_EXIT），请检查 DEPLOY_WEBHOOK_URL_TEST 配置"
             exit 1
           fi
 
