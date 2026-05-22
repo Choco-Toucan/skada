@@ -77,15 +77,21 @@ jobs:
           check_exists() {
             local path="$1" output
             output=$(ossutil stat "$path" 2>&1) || true
-            # 403 / 权限错误 → 不应静默
-            if echo "$output" | grep -qi "AccessDenied\|Error.*Service\|Forbidden"; then
-              echo "OSS stat 遇到权限/服务错误:"
+            # 404 / 对象不存在 — 必须最先判断，ossutil 所有错误输出都含 Error 关键词
+            if echo "$output" | grep -qi "NoSuchKey\|does not exist\|StatusCode: 404"; then
+              return 1
+            fi
+            # 403 / 权限错误
+            if echo "$output" | grep -qi "AccessDenied\|Forbidden\|StatusCode: 403"; then
+              echo "OSS stat 遇到权限错误:"
               echo "$output"
               return 2
             fi
-            # 404 / 对象不存在
-            if echo "$output" | grep -qi "NoSuchKey\|does not exist\|404"; then
-              return 1
+            # 其他未知错误
+            if echo "$output" | grep -qi "Error"; then
+              echo "OSS stat 遇到未知错误:"
+              echo "$output"
+              return 2
             fi
             # 对象存在
             return 0
