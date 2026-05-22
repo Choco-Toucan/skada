@@ -20,8 +20,6 @@ jobs:
 
     env:
       COMMIT_ID: ${{ github.sha }}
-      OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
-      OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
       OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
       OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
       DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL_TEST }}
@@ -44,9 +42,8 @@ jobs:
           OSSUTIL_VER="2.3.0"
           if curl -sL -o /tmp/ossutil.zip \
             "https://gosspublic.alicdn.com/ossutil/v2/${OSSUTIL_VER}/ossutil-${OSSUTIL_VER}-linux-amd64.zip"; then
-            echo "result=success" >> $GITHUB_OUTPUT
+            echo "ossutil 下载成功"
           else
-            echo "result=failure" >> $GITHUB_OUTPUT
             echo "ossutil 下载失败"
             exit 1
           fi
@@ -57,37 +54,53 @@ jobs:
           # 从 endpoint 提取 region（如 oss-cn-hangzhou.aliyuncs.com → cn-hangzhou）
           OSS_REGION=$(echo "$OSS_ENDPOINT" | sed 's/^oss-//; s/\.aliyuncs\.com$//; s/-internal$//')
           echo "OSS_REGION=$OSS_REGION" >> $GITHUB_ENV
+
           echo "ossutil 安装完成，region=$OSS_REGION"
 
       # ==================== 3. 检查 OSS 远端制品 ====================
       - name: 检查 OSS 远端制品是否存在
         id: check_oss
+        env:
+          AK_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          AK_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
         run: |
+          OSS_FLAGS="-i $AK_ID -k $AK_SECRET -e $OSS_ENDPOINT --region $OSS_REGION"
+
+          # 先验证凭证连通性
+          echo "=== 连通性验证 ==="
+          if ossutil ls "oss://${OSS_BUCKET}/package/" --limited-num 1 $OSS_FLAGS 2>&1; then
+            echo "连通性验证: 通过"
+          else
+            echo "连通性验证: 失败，请检查 AK/SK/Endpoint/Bucket 配置及 RAM 权限"
+            exit 1
+          fi
+
           API_PATH="oss://${OSS_BUCKET}/package/api-service/${COMMIT_ID}.jar"
           MNG_PATH="oss://${OSS_BUCKET}/package/mng-service/${COMMIT_ID}.jar"
           WEB_PATH="oss://${OSS_BUCKET}/package/mng-web/${COMMIT_ID}.tar.gz"
 
-          # 逐个检查制品，区分「不存在」与「权限错误」
           check_exists() {
             local path="$1" output
-            output=$(ossutil stat "$path" 2>&1) || true
-            # 404 / 对象不存在 — 必须最先判断，ossutil 所有错误输出都含 Error 关键词
+            echo "=== check_exists: $path ==="
+            output=$(ossutil stat "$path" $OSS_FLAGS 2>&1) || true
+            echo "$output"
+            # 404 / 对象不存在 — 必须最先判断
             if echo "$output" | grep -qi "NoSuchKey\|does not exist\|StatusCode: 404"; then
+              echo "→ 结果: 不存在 (404)"
               return 1
             fi
             # 403 / 权限错误
             if echo "$output" | grep -qi "AccessDenied\|Forbidden\|StatusCode: 403"; then
-              echo "OSS stat 遇到权限错误:"
-              echo "$output"
+              echo "→ 结果: 权限错误 (403)"
               return 2
             fi
             # 其他未知错误
             if echo "$output" | grep -qi "Error"; then
-              echo "OSS stat 遇到未知错误:"
-              echo "$output"
+              echo "→ 结果: 未知错误"
               return 2
             fi
             # 对象存在
+            echo "→ 结果: 已存在"
             return 0
           }
 
@@ -118,9 +131,10 @@ jobs:
           echo "mng_exists=$MNG_EXISTS" >> $GITHUB_OUTPUT
           echo "web_exists=$WEB_EXISTS" >> $GITHUB_OUTPUT
 
-          echo "api-service exists: $API_EXISTS"
-          echo "mng-service exists: $MNG_EXISTS"
-          echo "mng-web      exists: $WEB_EXISTS"
+          echo "=== 汇总 ==="
+          echo "api-service : $API_EXISTS"
+          echo "mng-service : $MNG_EXISTS"
+          echo "mng-web     : $WEB_EXISTS"
 
           if [ "$API_EXISTS" = "true" ] && [ "$MNG_EXISTS" = "true" ] && [ "$WEB_EXISTS" = "true" ]; then
             echo "all_skip=true" >> $GITHUB_OUTPUT
@@ -186,11 +200,15 @@ jobs:
       - name: 打包 api-service 并上传
         id: upload_api
         if: steps.check_oss.outputs.api_exists != 'true'
+        env:
+          AK_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          AK_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
         run: |
+          OSS_FLAGS="-i $AK_ID -k $AK_SECRET -e $OSS_ENDPOINT --region $OSS_REGION"
           SRC=$(find api-service/target -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' | head -1)
           OSS_PATH="oss://${OSS_BUCKET}/package/api-service/${COMMIT_ID}.jar"
           echo "Uploading $SRC → $OSS_PATH"
-          if ossutil cp "$SRC" "$OSS_PATH"; then
+          if ossutil cp "$SRC" "$OSS_PATH" $OSS_FLAGS; then
             echo "result=success" >> $GITHUB_OUTPUT
           else
             echo "result=failure" >> $GITHUB_OUTPUT
@@ -201,11 +219,15 @@ jobs:
       - name: 打包 mng-service 并上传
         id: upload_mng
         if: steps.check_oss.outputs.mng_exists != 'true'
+        env:
+          AK_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          AK_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
         run: |
+          OSS_FLAGS="-i $AK_ID -k $AK_SECRET -e $OSS_ENDPOINT --region $OSS_REGION"
           SRC=$(find mng-service/target -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' | head -1)
           OSS_PATH="oss://${OSS_BUCKET}/package/mng-service/${COMMIT_ID}.jar"
           echo "Uploading $SRC → $OSS_PATH"
-          if ossutil cp "$SRC" "$OSS_PATH"; then
+          if ossutil cp "$SRC" "$OSS_PATH" $OSS_FLAGS; then
             echo "result=success" >> $GITHUB_OUTPUT
           else
             echo "result=failure" >> $GITHUB_OUTPUT
@@ -216,12 +238,16 @@ jobs:
       - name: 打包 mng-web 并上传
         id: upload_web
         if: steps.check_oss.outputs.web_exists != 'true'
+        env:
+          AK_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          AK_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
         run: |
+          OSS_FLAGS="-i $AK_ID -k $AK_SECRET -e $OSS_ENDPOINT --region $OSS_REGION"
           TARBALL="mng-web-${COMMIT_ID}.tar.gz"
           OSS_PATH="oss://${OSS_BUCKET}/package/mng-web/${COMMIT_ID}.tar.gz"
           tar czf "$TARBALL" -C mng-web/dist .
           echo "Uploading $TARBALL → $OSS_PATH"
-          if ossutil cp "$TARBALL" "$OSS_PATH"; then
+          if ossutil cp "$TARBALL" "$OSS_PATH" $OSS_FLAGS; then
             echo "result=success" >> $GITHUB_OUTPUT
           else
             echo "result=failure" >> $GITHUB_OUTPUT
@@ -305,29 +331,18 @@ jobs:
           WEBHOOK_BODY=$(echo "$WEBHOOK_BODY_RAW" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
           # ---- 按阶段链式判定 ----
-          STAGE=""
-          STATUS=""
-          STATUS_COLOR=""
-
           if [ "$OSSUTIL_RESULT" = "failure" ]; then
-            STAGE="ossutil 安装/配置"
-            STATUS="❌ CD 失败 — ${STAGE}"
+            STATUS="❌ CD 失败 — ossutil 安装/配置"
             STATUS_COLOR="red"
           elif [ "$CHECK_OSS_RESULT" = "failure" ]; then
-            STAGE="OSS 远端制品检查"
-            STATUS="❌ CD 失败 — ${STAGE}"
+            STATUS="❌ CD 失败 — OSS 远端制品检查"
             STATUS_COLOR="red"
           elif [ "$BE_RESULT" = "failure" ] || [ "$FRONTEND_RESULT" = "failure" ]; then
-            if [ "$BE_RESULT" = "failure" ]; then
-              STAGE="Maven 编译/测试"
-            else
-              STAGE="Vue 前端构建"
-            fi
+            if [ "$BE_RESULT" = "failure" ]; then STAGE="Maven 编译/测试"; else STAGE="Vue 前端构建"; fi
             STATUS="❌ 构建失败 — ${STAGE}"
             STATUS_COLOR="red"
           elif [ "$UPLOAD_API_RESULT" = "failure" ] || [ "$UPLOAD_MNG_RESULT" = "failure" ] || [ "$UPLOAD_WEB_RESULT" = "failure" ]; then
-            STAGE="OSS 制品上传"
-            STATUS="❌ CD 失败 — ${STAGE}"
+            STATUS="❌ CD 失败 — OSS 制品上传"
             STATUS_COLOR="red"
           elif [ "$ALL_SKIP" = "true" ]; then
             STATUS="⚠️ 跳过部署"
@@ -341,35 +356,15 @@ jobs:
           fi
 
           # ---- 制品标签 ----
-          if [ "$API_EXISTS" = "true" ]; then
-            API_LABEL="(已存在，跳过)"
-          elif [ "$UPLOAD_API_RESULT" = "success" ]; then
-            API_LABEL="✅ 上传成功"
-          elif [ "$UPLOAD_API_RESULT" = "failure" ]; then
-            API_LABEL="❌ 上传失败"
-          else
-            API_LABEL="—"
-          fi
-
-          if [ "$MNG_EXISTS" = "true" ]; then
-            MNG_LABEL="(已存在，跳过)"
-          elif [ "$UPLOAD_MNG_RESULT" = "success" ]; then
-            MNG_LABEL="✅ 上传成功"
-          elif [ "$UPLOAD_MNG_RESULT" = "failure" ]; then
-            MNG_LABEL="❌ 上传失败"
-          else
-            MNG_LABEL="—"
-          fi
-
-          if [ "$WEB_EXISTS" = "true" ]; then
-            WEB_LABEL="(已存在，跳过)"
-          elif [ "$UPLOAD_WEB_RESULT" = "success" ]; then
-            WEB_LABEL="✅ 上传成功"
-          elif [ "$UPLOAD_WEB_RESULT" = "failure" ]; then
-            WEB_LABEL="❌ 上传失败"
-          else
-            WEB_LABEL="—"
-          fi
+          label() {
+            if [ "$1" = "true" ]; then echo "(已存在，跳过)"
+            elif [ "$2" = "success" ]; then echo "✅ 上传成功"
+            elif [ "$2" = "failure" ]; then echo "❌ 上传失败"
+            else echo "—"; fi
+          }
+          API_LABEL=$(label "$API_EXISTS" "$UPLOAD_API_RESULT")
+          MNG_LABEL=$(label "$MNG_EXISTS" "$UPLOAD_MNG_RESULT")
+          WEB_LABEL=$(label "$WEB_EXISTS" "$UPLOAD_WEB_RESULT")
 
           # ---- 详情 ----
           DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}"
