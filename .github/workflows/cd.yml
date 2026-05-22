@@ -37,17 +37,30 @@ jobs:
 
       # ==================== 2. 安装 ossutil ====================
       - name: 安装 ossutil
+        id: ossutil_setup
         run: |
           OSSUTIL_VER="2.3.0"
-          curl -sL -o /tmp/ossutil.zip \
-            "https://gosspublic.alicdn.com/ossutil/v2/${OSSUTIL_VER}/ossutil-${OSSUTIL_VER}-linux-amd64.zip"
+          if curl -sL -o /tmp/ossutil.zip \
+            "https://gosspublic.alicdn.com/ossutil/v2/${OSSUTIL_VER}/ossutil-${OSSUTIL_VER}-linux-amd64.zip"; then
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            echo "ossutil 下载失败"
+            exit 1
+          fi
           unzip -qo /tmp/ossutil.zip -d /tmp/ossutil
           sudo mv "/tmp/ossutil/ossutil-${OSSUTIL_VER}-linux-amd64/ossutil" /usr/local/bin/ossutil
           sudo chmod +x /usr/local/bin/ossutil
-          ossutil config -e "${{ secrets.OSS_ENDPOINT }}" \
+          if ossutil config -e "${{ secrets.OSS_ENDPOINT }}" \
             -i "${{ secrets.OSS_ACCESS_KEY_ID }}" \
             -k "${{ secrets.OSS_ACCESS_KEY_SECRET }}" \
-            --mode AK 2>&1
+            --mode AK 2>&1; then
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            echo "ossutil 配置失败"
+            exit 1
+          fi
 
       # ==================== 3. 检查 OSS 远端制品 ====================
       - name: 检查 OSS 远端制品是否存在
@@ -146,7 +159,12 @@ jobs:
           SRC=$(find api-service/target -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' | head -1)
           OSS_PATH="oss://${OSS_BUCKET}/package/api-service/${COMMIT_ID}.jar"
           echo "Uploading $SRC → $OSS_PATH"
-          ossutil cp "$SRC" "$OSS_PATH"
+          if ossutil cp "$SRC" "$OSS_PATH"; then
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
         env:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
@@ -159,7 +177,12 @@ jobs:
           SRC=$(find mng-service/target -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' | head -1)
           OSS_PATH="oss://${OSS_BUCKET}/package/mng-service/${COMMIT_ID}.jar"
           echo "Uploading $SRC → $OSS_PATH"
-          ossutil cp "$SRC" "$OSS_PATH"
+          if ossutil cp "$SRC" "$OSS_PATH"; then
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
         env:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
@@ -173,7 +196,12 @@ jobs:
           OSS_PATH="oss://${OSS_BUCKET}/package/mng-web/${COMMIT_ID}.tar.gz"
           tar czf "$TARBALL" -C mng-web/dist .
           echo "Uploading $TARBALL → $OSS_PATH"
-          ossutil cp "$TARBALL" "$OSS_PATH"
+          if ossutil cp "$TARBALL" "$OSS_PATH"; then
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
         env:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
@@ -228,8 +256,13 @@ jobs:
       - name: 发送飞书通知
         if: always()
         env:
+          OSSUTIL_RESULT: ${{ steps.ossutil_setup.result }}
+          CHECK_OSS_RESULT: ${{ steps.check_oss.result }}
           BE_RESULT: ${{ steps.maven_build.result }}
           FRONTEND_RESULT: ${{ steps.frontend_build.result }}
+          UPLOAD_API_RESULT: ${{ steps.upload_api.result }}
+          UPLOAD_MNG_RESULT: ${{ steps.upload_mng.result }}
+          UPLOAD_WEB_RESULT: ${{ steps.upload_web.result }}
           ALL_SKIP: ${{ steps.check_oss.outputs.all_skip }}
           API_EXISTS: ${{ steps.check_oss.outputs.api_exists }}
           MNG_EXISTS: ${{ steps.check_oss.outputs.mng_exists }}
@@ -246,52 +279,86 @@ jobs:
             exit 0
           fi
 
-          # 转义 webhook body 中的特殊字符，防止 JSON 损坏
+          # 转义 webhook body
           WEBHOOK_BODY=$(echo "$WEBHOOK_BODY_RAW" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
-          # ---- 构建失败判定（仅 'failure' 视为失败，'skipped' 说明步骤未执行）----
-          BUILD_FAILED="false"
-          if [ "$BE_RESULT" = "failure" ] || [ "$FRONTEND_RESULT" = "failure" ]; then
-            BUILD_FAILED="true"
+          # ---- 按阶段链式判定 ----
+          STAGE=""
+          STATUS=""
+          STATUS_COLOR=""
+
+          if [ "$OSSUTIL_RESULT" = "failure" ]; then
+            STAGE="ossutil 安装/配置"
+            STATUS="❌ CD 失败 — ${STAGE}"
+            STATUS_COLOR="red"
+          elif [ "$CHECK_OSS_RESULT" = "failure" ]; then
+            STAGE="OSS 远端制品检查"
+            STATUS="❌ CD 失败 — ${STAGE}"
+            STATUS_COLOR="red"
+          elif [ "$BE_RESULT" = "failure" ] || [ "$FRONTEND_RESULT" = "failure" ]; then
+            if [ "$BE_RESULT" = "failure" ]; then
+              STAGE="Maven 编译/测试"
+            else
+              STAGE="Vue 前端构建"
+            fi
+            STATUS="❌ 构建失败 — ${STAGE}"
+            STATUS_COLOR="red"
+          elif [ "$UPLOAD_API_RESULT" = "failure" ] || [ "$UPLOAD_MNG_RESULT" = "failure" ] || [ "$UPLOAD_WEB_RESULT" = "failure" ]; then
+            STAGE="OSS 制品上传"
+            STATUS="❌ CD 失败 — ${STAGE}"
+            STATUS_COLOR="red"
+          elif [ "$ALL_SKIP" = "true" ]; then
+            STATUS="⚠️ 跳过部署"
+            STATUS_COLOR="yellow"
+          elif [ "$WEBHOOK_FAILED" = "true" ]; then
+            STATUS="❌ Webhook 失败"
+            STATUS_COLOR="red"
+          else
+            STATUS="✅ 部署成功"
+            STATUS_COLOR="green"
           fi
 
           # ---- 制品标签 ----
           if [ "$API_EXISTS" = "true" ]; then
             API_LABEL="(已存在，跳过)"
-          else
+          elif [ "$UPLOAD_API_RESULT" = "success" ]; then
             API_LABEL="✅ 上传成功"
+          elif [ "$UPLOAD_API_RESULT" = "failure" ]; then
+            API_LABEL="❌ 上传失败"
+          else
+            API_LABEL="—"
           fi
 
           if [ "$MNG_EXISTS" = "true" ]; then
             MNG_LABEL="(已存在，跳过)"
-          else
+          elif [ "$UPLOAD_MNG_RESULT" = "success" ]; then
             MNG_LABEL="✅ 上传成功"
+          elif [ "$UPLOAD_MNG_RESULT" = "failure" ]; then
+            MNG_LABEL="❌ 上传失败"
+          else
+            MNG_LABEL="—"
           fi
 
           if [ "$WEB_EXISTS" = "true" ]; then
             WEB_LABEL="(已存在，跳过)"
-          else
+          elif [ "$UPLOAD_WEB_RESULT" = "success" ]; then
             WEB_LABEL="✅ 上传成功"
+          elif [ "$UPLOAD_WEB_RESULT" = "failure" ]; then
+            WEB_LABEL="❌ 上传失败"
+          else
+            WEB_LABEL="—"
           fi
 
-          # ---- 整体状态 ----
-          if [ "$BUILD_FAILED" = "true" ]; then
-            STATUS="❌ 构建失败"
-            STATUS_COLOR="red"
-            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}"
-          elif [ "$ALL_SKIP" = "true" ]; then
-            STATUS="⚠️ 跳过部署"
-            STATUS_COLOR="yellow"
-            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}\\n\\n该 commit 已部署过，OSS 制品全部存在"
-          elif [ "$WEBHOOK_FAILED" = "true" ]; then
-            STATUS="❌ Webhook 失败"
-            STATUS_COLOR="red"
+          # ---- 详情 ----
+          DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}"
+
+          if [ "$WEBHOOK_FAILED" = "true" ]; then
             WH_ESCAPED=$(echo "$WEBHOOK_BODY" | sed 's/\\/\\\\/g; s/"/\\"/g')
-            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}\\n\\nWebhook 响应:\\nHTTP 状态码: ${WEBHOOK_CODE}\\nBody: ${WH_ESCAPED}"
-          else
-            STATUS="✅ 部署成功"
-            STATUS_COLOR="green"
-            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}"
+            DETAIL="${DETAIL}\\n\\nWebhook 响应:\\nHTTP 状态码: ${WEBHOOK_CODE}\\nBody: ${WH_ESCAPED}"
+          fi
+
+          if [ "$ALL_SKIP" = "true" ]; then
+            DETAIL="${DETAIL}\\n\\n该 commit 已部署过，OSS 制品全部存在"
           fi
 
           # ---- 发送 ----
