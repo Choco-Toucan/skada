@@ -20,6 +20,8 @@ jobs:
 
     env:
       COMMIT_ID: ${{ github.sha }}
+      OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+      OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
       OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
       OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
       DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL_TEST }}
@@ -51,16 +53,11 @@ jobs:
           unzip -qo /tmp/ossutil.zip -d /tmp/ossutil
           sudo mv "/tmp/ossutil/ossutil-${OSSUTIL_VER}-linux-amd64/ossutil" /usr/local/bin/ossutil
           sudo chmod +x /usr/local/bin/ossutil
-          if ossutil config -e "${{ secrets.OSS_ENDPOINT }}" \
-            -i "${{ secrets.OSS_ACCESS_KEY_ID }}" \
-            -k "${{ secrets.OSS_ACCESS_KEY_SECRET }}" \
-            --mode AK 2>&1; then
-            echo "result=success" >> $GITHUB_OUTPUT
-          else
-            echo "result=failure" >> $GITHUB_OUTPUT
-            echo "ossutil 配置失败"
-            exit 1
-          fi
+
+          # 从 endpoint 提取 region（如 oss-cn-hangzhou.aliyuncs.com → cn-hangzhou）
+          OSS_REGION=$(echo "$OSS_ENDPOINT" | sed 's/^oss-//; s/\.aliyuncs\.com$//; s/-internal$//')
+          echo "OSS_REGION=$OSS_REGION" >> $GITHUB_ENV
+          echo "ossutil 安装完成，region=$OSS_REGION"
 
       # ==================== 3. 检查 OSS 远端制品 ====================
       - name: 检查 OSS 远端制品是否存在
@@ -166,9 +163,6 @@ jobs:
             exit 1
           fi
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
-        env:
-          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
 
       - name: 打包 mng-service 并上传
         id: upload_mng
@@ -184,9 +178,6 @@ jobs:
             exit 1
           fi
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
-        env:
-          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
 
       - name: 打包 mng-web 并上传
         id: upload_web
@@ -203,9 +194,6 @@ jobs:
             exit 1
           fi
           echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
-        env:
-          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
 
       # ==================== 9. 调用部署 webhook ====================
       - name: 调用部署 webhook
