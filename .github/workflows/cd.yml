@@ -1,0 +1,336 @@
+name: CD
+
+# 需要配置的 Secrets:
+#   OSS_ACCESS_KEY_ID    — 阿里云 RAM AccessKey ID
+#   OSS_ACCESS_KEY_SECRET — 阿里云 RAM AccessKey Secret
+#   OSS_ENDPOINT         — OSS endpoint，如 oss-cn-hangzhou.aliyuncs.com
+#   OSS_BUCKET           — OSS bucket 名称
+#   DEPLOY_WEBHOOK_URL_TEST   — 部署触发 webhook 地址 (test 环境)
+#   DEPLOY_WEBHOOK_SECRET_TEST — 部署触发 webhook 的 X-Deploy-Secret (test 环境)
+#   FEISHU_WEBHOOK_URL   — 飞书机器人 webhook 地址
+
+on:
+  push:
+    branches: [deploy_test]
+  workflow_dispatch:
+
+jobs:
+  cd:
+    runs-on: ubuntu-latest
+
+    env:
+      COMMIT_ID: ${{ github.sha }}
+      OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+      DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL_TEST }}
+      DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET_TEST }}
+      FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+
+    outputs:
+      api_exists: ${{ steps.check_oss.outputs.api_exists }}
+      mng_exists: ${{ steps.check_oss.outputs.mng_exists }}
+      web_exists: ${{ steps.check_oss.outputs.web_exists }}
+
+    steps:
+      # ==================== 1. 检出代码 ====================
+      - uses: actions/checkout@v4
+
+      # ==================== 2. 安装 ossutil ====================
+      - name: 安装 ossutil
+        run: |
+          curl -sL -o /usr/local/bin/ossutil \
+            https://gosspublic.alicdn.com/ossutil/v2/ossutil-v2-linux-amd64
+          chmod +x /usr/local/bin/ossutil
+          ossutil config -e "$OSS_ENDPOINT" \
+            -i "${{ secrets.OSS_ACCESS_KEY_ID }}" \
+            -k "${{ secrets.OSS_ACCESS_KEY_SECRET }}" \
+            --mode AK 2>&1
+
+      # ==================== 3. 检查 OSS 远端制品 ====================
+      - name: 检查 OSS 远端制品是否存在
+        id: check_oss
+        run: |
+          API_PATH="oss://${OSS_BUCKET}/package/api-service/${COMMIT_ID}.jar"
+          MNG_PATH="oss://${OSS_BUCKET}/package/mng-service/${COMMIT_ID}.jar"
+          WEB_PATH="oss://${OSS_BUCKET}/package/mng-web/${COMMIT_ID}.tar.gz"
+
+          check_exists() {
+            local path="$1"
+            if ossutil stat "$path" >/dev/null 2>&1; then
+              echo "true"
+            else
+              echo "false"
+            fi
+          }
+
+          API_EXISTS=$(check_exists "$API_PATH")
+          MNG_EXISTS=$(check_exists "$MNG_PATH")
+          WEB_EXISTS=$(check_exists "$WEB_PATH")
+
+          echo "api_exists=$API_EXISTS" >> $GITHUB_OUTPUT
+          echo "mng_exists=$MNG_EXISTS" >> $GITHUB_OUTPUT
+          echo "web_exists=$WEB_EXISTS" >> $GITHUB_OUTPUT
+
+          echo "api-service exists: $API_EXISTS"
+          echo "mng-service exists: $MNG_EXISTS"
+          echo "mng-web      exists: $WEB_EXISTS"
+
+          if [ "$API_EXISTS" = "true" ] && [ "$MNG_EXISTS" = "true" ] && [ "$WEB_EXISTS" = "true" ]; then
+            echo "all_skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "all_skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==================== 4. 安装 JDK 21 (按需) ====================
+      - name: 安装 JDK 21
+        id: setup_java
+        if: steps.check_oss.outputs.all_skip != 'true'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # ==================== 5. 编译 Java 模块 & 测试 ====================
+      - name: 编译 Java 模块 & 测试
+        id: maven_build
+        if: steps.check_oss.outputs.all_skip != 'true' && (steps.check_oss.outputs.api_exists != 'true' || steps.check_oss.outputs.mng_exists != 'true')
+        run: |
+          START=$(date +%s)
+          if mvn clean package -DskipTests=false 2>&1 | tee build.log; then
+            END=$(date +%s)
+            echo "cost=$((END - START))" >> $GITHUB_OUTPUT
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            echo "Maven build failed — see build.log"
+            exit 1
+          fi
+
+      # ==================== 6. 安装 Node.js (按需) ====================
+      - name: 安装 Node.js
+        id: setup_node
+        if: steps.check_oss.outputs.all_skip != 'true' && steps.check_oss.outputs.web_exists != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: mng-web/package-lock.json
+
+      # ==================== 7. 构建前端 (按需) ====================
+      - name: 构建前端
+        id: frontend_build
+        if: steps.check_oss.outputs.all_skip != 'true' && steps.check_oss.outputs.web_exists != 'true'
+        run: |
+          cd mng-web
+          START=$(date +%s)
+          npm ci
+          if npm run build 2>&1 | tee build.log; then
+            END=$(date +%s)
+            echo "cost=$((END - START))" >> $GITHUB_OUTPUT
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "result=failure" >> $GITHUB_OUTPUT
+            echo "npm build failed — see build.log"
+            exit 1
+          fi
+
+      # ==================== 8. 打包 & 上传 OSS ====================
+      - name: 打包 api-service 并上传
+        id: upload_api
+        if: steps.check_oss.outputs.api_exists != 'true'
+        run: |
+          SRC=$(find api-service/target -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' | head -1)
+          OSS_PATH="oss://${OSS_BUCKET}/package/api-service/${COMMIT_ID}.jar"
+          echo "Uploading $SRC → $OSS_PATH"
+          ossutil cp "$SRC" "$OSS_PATH"
+          echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
+        env:
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+
+      - name: 打包 mng-service 并上传
+        id: upload_mng
+        if: steps.check_oss.outputs.mng_exists != 'true'
+        run: |
+          SRC=$(find mng-service/target -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' | head -1)
+          OSS_PATH="oss://${OSS_BUCKET}/package/mng-service/${COMMIT_ID}.jar"
+          echo "Uploading $SRC → $OSS_PATH"
+          ossutil cp "$SRC" "$OSS_PATH"
+          echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
+        env:
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+
+      - name: 打包 mng-web 并上传
+        id: upload_web
+        if: steps.check_oss.outputs.web_exists != 'true'
+        run: |
+          TARBALL="mng-web-${COMMIT_ID}.tar.gz"
+          OSS_PATH="oss://${OSS_BUCKET}/package/mng-web/${COMMIT_ID}.tar.gz"
+          tar czf "$TARBALL" -C mng-web/dist .
+          echo "Uploading $TARBALL → $OSS_PATH"
+          ossutil cp "$TARBALL" "$OSS_PATH"
+          echo "oss_path=$OSS_PATH" >> $GITHUB_OUTPUT
+        env:
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+
+      # ==================== 9. 调用部署 webhook ====================
+      - name: 调用部署 webhook
+        id: deploy_webhook
+        run: |
+          # 构建 services 数组
+          if [ "${{ steps.check_oss.outputs.all_skip }}" = "true" ]; then
+            SERVICES='["api-service", "mng-service", "mng-web"]'
+          else
+            items=""
+            if [ "${{ steps.check_oss.outputs.api_exists }}" = "false" ]; then
+              items="${items}${items:+, }\"api-service\""
+            fi
+            if [ "${{ steps.check_oss.outputs.mng_exists }}" = "false" ]; then
+              items="${items}${items:+, }\"mng-service\""
+            fi
+            if [ "${{ steps.check_oss.outputs.web_exists }}" = "false" ]; then
+              items="${items}${items:+, }\"mng-web\""
+            fi
+            SERVICES="[$items]"
+          fi
+
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+
+          RESPONSE=$(mktemp)
+          HTTP_CODE=$(curl -s -w "%{http_code}" -o "$RESPONSE" \
+            -X POST "$DEPLOY_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Deploy-Secret: $DEPLOY_WEBHOOK_SECRET" \
+            -d "{\"commit\":\"${COMMIT_ID}\",\"services\":$SERVICES}")
+
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          BODY=$(cat "$RESPONSE")
+          echo "response_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "Webhook HTTP $HTTP_CODE"
+          echo "$BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "webhook_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "webhook_failed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==================== 10. 飞书通知 ====================
+      - name: 发送飞书通知
+        if: always()
+        env:
+          BE_RESULT: ${{ steps.maven_build.result }}
+          FRONTEND_RESULT: ${{ steps.frontend_build.result }}
+          ALL_SKIP: ${{ steps.check_oss.outputs.all_skip }}
+          API_EXISTS: ${{ steps.check_oss.outputs.api_exists }}
+          MNG_EXISTS: ${{ steps.check_oss.outputs.mng_exists }}
+          WEB_EXISTS: ${{ steps.check_oss.outputs.web_exists }}
+          WEBHOOK_CODE: ${{ steps.deploy_webhook.outputs.http_code }}
+          WEBHOOK_BODY_RAW: ${{ steps.deploy_webhook.outputs.response_body }}
+          WEBHOOK_FAILED: ${{ steps.deploy_webhook.outputs.webhook_failed }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$FEISHU_WEBHOOK_URL" ]; then
+            echo "FEISHU_WEBHOOK_URL 未配置，跳过通知"
+            exit 0
+          fi
+
+          # 转义 webhook body 中的特殊字符，防止 JSON 损坏
+          WEBHOOK_BODY=$(echo "$WEBHOOK_BODY_RAW" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
+          # ---- 构建失败判定（仅 'failure' 视为失败，'skipped' 说明步骤未执行）----
+          BUILD_FAILED="false"
+          if [ "$BE_RESULT" = "failure" ] || [ "$FRONTEND_RESULT" = "failure" ]; then
+            BUILD_FAILED="true"
+          fi
+
+          # ---- 制品标签 ----
+          if [ "$API_EXISTS" = "true" ]; then
+            API_LABEL="(已存在，跳过)"
+          else
+            API_LABEL="✅ 上传成功"
+          fi
+
+          if [ "$MNG_EXISTS" = "true" ]; then
+            MNG_LABEL="(已存在，跳过)"
+          else
+            MNG_LABEL="✅ 上传成功"
+          fi
+
+          if [ "$WEB_EXISTS" = "true" ]; then
+            WEB_LABEL="(已存在，跳过)"
+          else
+            WEB_LABEL="✅ 上传成功"
+          fi
+
+          # ---- 整体状态 ----
+          if [ "$BUILD_FAILED" = "true" ]; then
+            STATUS="❌ 构建失败"
+            STATUS_COLOR="red"
+            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}"
+          elif [ "$ALL_SKIP" = "true" ]; then
+            STATUS="⚠️ 跳过部署"
+            STATUS_COLOR="yellow"
+            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}\\n\\n该 commit 已部署过，OSS 制品全部存在"
+          elif [ "$WEBHOOK_FAILED" = "true" ]; then
+            STATUS="❌ Webhook 失败"
+            STATUS_COLOR="red"
+            WH_ESCAPED=$(echo "$WEBHOOK_BODY" | sed 's/\\/\\\\/g; s/"/\\"/g')
+            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}\\n\\nWebhook 响应:\\nHTTP 状态码: ${WEBHOOK_CODE}\\nBody: ${WH_ESCAPED}"
+          else
+            STATUS="✅ 部署成功"
+            STATUS_COLOR="green"
+            DETAIL="**${BRANCH}**\\n仓库: ${REPO}\\n提交: ${COMMIT_ID}"
+          fi
+
+          # ---- 发送 ----
+          curl -s --connect-timeout 30 --max-time 60 --retry 2 -X POST "$FEISHU_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "$(cat <<JSON
+          {
+            "msg_type": "interactive",
+            "card": {
+              "header": {
+                "title": { "tag": "plain_text", "content": "${STATUS}" },
+                "template": "${STATUS_COLOR}"
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "${DETAIL}"
+                  }
+                },
+                { "tag": "hr" },
+                {
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "api-service: ${API_LABEL}\\nmng-service: ${MNG_LABEL}\\nmng-web:     ${WEB_LABEL}"
+                  }
+                },
+                {
+                  "tag": "action",
+                  "actions": [
+                    {
+                      "tag": "button",
+                      "text": { "tag": "plain_text", "content": "查看详情" },
+                      "url": "${RUN_URL}",
+                      "type": "primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          JSON
+          )"
