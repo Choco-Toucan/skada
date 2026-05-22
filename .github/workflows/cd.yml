@@ -44,7 +44,7 @@ jobs:
           unzip -qo /tmp/ossutil.zip -d /tmp/ossutil
           sudo mv "/tmp/ossutil/ossutil-${OSSUTIL_VER}-linux-amd64/ossutil" /usr/local/bin/ossutil
           sudo chmod +x /usr/local/bin/ossutil
-          ossutil config -e "$OSS_ENDPOINT" \
+          ossutil config -e "${{ secrets.OSS_ENDPOINT }}" \
             -i "${{ secrets.OSS_ACCESS_KEY_ID }}" \
             -k "${{ secrets.OSS_ACCESS_KEY_SECRET }}" \
             --mode AK 2>&1
