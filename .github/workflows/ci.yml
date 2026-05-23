@@ -43,19 +43,19 @@ jobs:
         id: extract-tests
         if: always()
         run: |
-          # 提取 surefire 测试汇总（取最后一条 "Tests run:" 行）
-          TEST_LINE=$(grep "Tests run:" build.log | tail -1 || true)
+          # 提取 surefire 测试汇总（取最后一条 "Tests run:" 行，去掉 [INFO] 前缀和逗号）
+          TEST_LINE=$(grep "Tests run:" build.log | tail -1 | sed 's/.*Tests run:/Tests run:/' || true)
           if [ -n "$TEST_LINE" ]; then
             echo "summary=${TEST_LINE//,/ }" >> $GITHUB_OUTPUT
           else
             echo "summary=无测试结果" >> $GITHUB_OUTPUT
           fi
 
-          # 提取 JaCoCo 行覆盖率（jacoco.csv 第7列=LINE_MISSED, 第8列=LINE_COVERED）
+          # 提取 JaCoCo 行覆盖率（jacoco.csv: $8=LINE_MISSED, $9=LINE_COVERED）
           COV_FILE=api-service/target/site/jacoco/jacoco.csv
           if [ -f "$COV_FILE" ]; then
-            LM=$(tail -n +2 "$COV_FILE" | awk -F, '{s+=$7}END{print s+0}')
-            LC=$(tail -n +2 "$COV_FILE" | awk -F, '{s+=$8}END{print s+0}')
+            LM=$(tail -n +2 "$COV_FILE" | awk -F, '{s+=$8}END{print s+0}')
+            LC=$(tail -n +2 "$COV_FILE" | awk -F, '{s+=$9}END{print s+0}')
             TOTAL=$((LM + LC))
             if [ "$TOTAL" -gt 0 ]; then
               COV=$(awk -v lc="$LC" -v t="$TOTAL" 'BEGIN{printf "%.1f%%\n",lc/t*100}')
@@ -126,7 +126,8 @@ jobs:
           if [ "$EVENT" = "pull_request" ]; then
             TITLE="CI #${PR_NUMBER} $(echo "$PR_TITLE" | sed 's/\\/\\\\/g; s/"/\\"/g')"
           else
-            TITLE="CI ${BRANCH} — $(echo "${COMMIT_MSG:0:50}" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+            MSG_FIRST_LINE=$(echo "$COMMIT_MSG" | head -1)
+            TITLE="CI ${BRANCH} — $(echo "${MSG_FIRST_LINE:0:50}" | sed 's/\\/\\\\/g; s/"/\\"/g')"
           fi
 
           # 判断状态
