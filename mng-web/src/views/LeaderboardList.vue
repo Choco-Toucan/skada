@@ -49,6 +49,8 @@
             }}</span>
           </template>
           <template v-if="column.key === 'actions'">
+            <a-button type="link" size="small" @click="openRanking(record)">查看当前实例</a-button>
+            <a-button type="link" size="small" @click="openInstances(record)">历史实例</a-button>
             <a-button type="link" @click="handleRoll(record)" :loading="rollingId === record.id" :disabled="record.status !== 'active'">滚动</a-button>
             <a-popconfirm title="确定终止该排行榜？" @confirm="handleStop(record)">
               <a-button type="link" danger :loading="stoppingId === record.id" :disabled="record.status !== 'active'">终止</a-button>
@@ -57,14 +59,89 @@
         </template>
       </a-table>
     </a-card>
+
+    <!-- 排行数据弹窗 -->
+    <a-modal
+      v-model:open="rankingVisible"
+      :title="`排行数据 — ${rankingTitle}`"
+      width="900px"
+      :footer="null"
+      @cancel="rankingVisible = false"
+    >
+      <a-table
+        :dataSource="rankingList"
+        :columns="rankingColumns"
+        :loading="rankingLoading"
+        :pagination="{ current: rankingPage, pageSize: rankingPageSize, total: rankingTotal, onChange: onRankingPageChange }"
+        rowKey="rank"
+        size="small"
+      >
+        <template #emptyText>
+          <span v-if="!rankingLoading">暂无排行数据</span>
+        </template>
+      </a-table>
+    </a-modal>
+
+    <!-- 历史实例弹窗 -->
+    <a-modal
+      v-model:open="instancesVisible"
+      :title="`历史实例 — ${instancesTitle}`"
+      width="900px"
+      :footer="null"
+      @cancel="instancesVisible = false"
+    >
+      <a-table
+        :dataSource="instances"
+        :columns="instanceColumns"
+        :loading="instancesLoading"
+        rowKey="id"
+        size="small"
+      >
+        <template #emptyText>
+          <span v-if="!instancesLoading">暂无历史实例</span>
+        </template>
+        <template #bodyCell="{ column: col, record: inst }">
+          <template v-if="col.key === 'instanceStatus'">
+            <a-tag :color="inst.status === 'active' ? 'green' : 'default'">
+              {{ inst.status === 'active' ? '活跃' : '已关闭' }}
+            </a-tag>
+          </template>
+          <template v-if="col.key === 'instanceActions'">
+            <a-button type="link" size="small" @click="openInstanceRanking(inst)">查看排行</a-button>
+          </template>
+        </template>
+      </a-table>
+    </a-modal>
+
+    <!-- 历史实例中的排行数据弹窗 -->
+    <a-modal
+      v-model:open="instanceRankingVisible"
+      :title="`排行数据 — 实例 ${instanceRankingTitle}`"
+      width="900px"
+      :footer="null"
+      @cancel="instanceRankingVisible = false"
+    >
+      <a-table
+        :dataSource="instanceRankingList"
+        :columns="rankingColumns"
+        :loading="instanceRankingLoading"
+        :pagination="{ current: instanceRankingPage, pageSize: instanceRankingPageSize, total: instanceRankingTotal, onChange: onInstanceRankingPageChange }"
+        rowKey="rank"
+        size="small"
+      >
+        <template #emptyText>
+          <span v-if="!instanceRankingLoading">暂无排行数据</span>
+        </template>
+      </a-table>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { listLeaderboards, rollLeaderboard, stopLeaderboard } from '@/api/leaderboard'
+import { listLeaderboards, rollLeaderboard, stopLeaderboard, getInstances, getRanking } from '@/api/leaderboard'
 import { listAllTenants } from '@/api/tenant'
-import type { Leaderboard, Tenant } from '@/types'
+import type { Leaderboard, Tenant, LeaderboardInstance, LeaderboardRankEntry } from '@/types'
 
 const list = ref<Leaderboard[]>([])
 const tenants = ref<Tenant[]>([])
@@ -86,9 +163,126 @@ const columns = [
   { title: '当前实例', dataIndex: 'currentInstanceId', key: 'currentInstanceId' },
   { title: '状态', key: 'status' },
   { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
-  { title: '操作', key: 'actions' },
+  { title: '操作', key: 'actions', width: 300 },
 ]
 
+// ==================== 排行数据弹窗 ====================
+const rankingVisible = ref(false)
+const rankingTitle = ref('')
+const rankingList = ref<LeaderboardRankEntry[]>([])
+const rankingLoading = ref(false)
+const rankingPage = ref(1)
+const rankingPageSize = ref(30)
+const rankingTotal = ref(0)
+let _rankingLbId = 0
+let _rankingInstId = 0
+
+const rankingColumns = [
+  { title: '排名', dataIndex: 'rank', key: 'rank', width: 60 },
+  { title: '用户ID', dataIndex: 'userId', key: 'userId' },
+  { title: '指标值', key: 'metrics', width: 400 },
+]
+
+async function openRanking(record: Leaderboard) {
+  if (!record.currentInstanceId) {
+    return
+  }
+  _rankingLbId = record.id
+  _rankingInstId = record.currentInstanceId
+  rankingTitle.value = record.name
+  rankingPage.value = 1
+  rankingVisible.value = true
+  await fetchRanking()
+}
+
+async function fetchRanking() {
+  rankingLoading.value = true
+  try {
+    const from = (rankingPage.value - 1) * rankingPageSize.value
+    const to = from + rankingPageSize.value - 1
+    const res = await getRanking(_rankingLbId, _rankingInstId, from, to)
+    rankingList.value = res.data.data
+  } catch {
+    rankingList.value = []
+  } finally {
+    rankingLoading.value = false
+  }
+}
+
+function onRankingPageChange(p: number) {
+  rankingPage.value = p
+  fetchRanking()
+}
+
+// ==================== 历史实例弹窗 ====================
+const instancesVisible = ref(false)
+const instancesTitle = ref('')
+const instances = ref<LeaderboardInstance[]>([])
+const instancesLoading = ref(false)
+
+const instanceColumns = [
+  { title: '序号', dataIndex: 'instanceSeq', key: 'instanceSeq', width: 60 },
+  { title: '实例ID', dataIndex: 'instanceId', key: 'instanceId' },
+  { title: '开始时间', dataIndex: 'startTime', key: 'startTime' },
+  { title: '结束时间', dataIndex: 'endTime', key: 'endTime' },
+  { title: '状态', key: 'instanceStatus', width: 80 },
+  { title: '操作', key: 'instanceActions', width: 100 },
+]
+
+async function openInstances(record: Leaderboard) {
+  instancesTitle.value = record.name
+  instancesLoading.value = true
+  instancesVisible.value = true
+  try {
+    const res = await getInstances(record.id)
+    instances.value = res.data.data.sort((a, b) => b.instanceSeq - a.instanceSeq)
+  } catch {
+    instances.value = []
+  } finally {
+    instancesLoading.value = false
+  }
+}
+
+// ==================== 历史实例排行 ====================
+const instanceRankingVisible = ref(false)
+const instanceRankingTitle = ref('')
+const instanceRankingList = ref<LeaderboardRankEntry[]>([])
+const instanceRankingLoading = ref(false)
+const instanceRankingPage = ref(1)
+const instanceRankingPageSize = ref(30)
+const instanceRankingTotal = ref(0)
+let _instLbId = 0
+let _instInstId = 0
+
+async function openInstanceRanking(inst: LeaderboardInstance) {
+  _instLbId = inst.leaderboardId
+  _instInstId = inst.id
+  instanceRankingTitle.value = String(inst.instanceSeq)
+  instanceRankingPage.value = 1
+  instanceRankingVisible.value = true
+  await fetchInstanceRanking()
+}
+
+async function fetchInstanceRanking() {
+  instanceRankingLoading.value = true
+  try {
+    const from = (instanceRankingPage.value - 1) * instanceRankingPageSize.value
+    const to = from + instanceRankingPageSize.value - 1
+    const res = await getRanking(_instLbId, _instInstId, from, to)
+    instanceRankingList.value = res.data.data
+  } catch {
+    instanceRankingList.value = []
+  } finally {
+    instanceRankingLoading.value = false
+  }
+}
+
+function onInstanceRankingPageChange(p: number) {
+  instanceRankingPage.value = p
+  fetchInstanceRanking()
+}
+
+// ==================== 排行榜列表 ====================
 async function fetchLeaderboards() {
   loading.value = true
   error.value = false

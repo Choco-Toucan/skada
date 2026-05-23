@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.skada.mng.mapper.ScoreRecordMapper">
+
+    <resultMap id="scoreWithMetric" type="com.skada.mng.model.ScoreRecord">
+        <id column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="leaderboard_id" property="leaderboardId"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="metric_id" property="metricId"/>
+        <result column="user_id" property="userId"/>
+        <result column="score" property="score"/>
+        <result column="payload" property="payload"/>
+        <result column="metric_name" property="metricName"/>
+        <result column="metric_external_id" property="metricExternalId"/>
+    </resultMap>
+
+    <select id="findByInstance" resultMap="scoreWithMetric">
+        SELECT sr.id, sr.tenant_id, sr.leaderboard_id, sr.instance_id,
+               sr.metric_id, sr.user_id, sr.score, sr.payload,
+               m.name AS metric_name, m.metric_id AS metric_external_id
+        FROM score_record sr
+        JOIN metric m ON sr.metric_id = m.id
+        WHERE sr.leaderboard_id = #{leaderboardId} AND sr.instance_id = #{instanceId}
+        ORDER BY sr.user_id
+    </select>
+
+    <select id="findPayloadsByUsers" resultMap="scoreWithMetric">
+        SELECT sr.id, sr.tenant_id, sr.leaderboard_id, sr.instance_id,
+               sr.metric_id, sr.user_id, sr.score, sr.payload,
+               m.name AS metric_name, m.metric_id AS metric_external_id
+        FROM score_record sr
+        JOIN metric m ON sr.metric_id = m.id
+        WHERE sr.leaderboard_id = #{leaderboardId}
+          AND sr.instance_id = #{instanceId}
+          AND sr.user_id IN
+          <foreach collection="userIds" item="uid" open="(" close=")" separator=",">
+              #{uid}
+          </foreach>
+    </select>
+
+</mapper>

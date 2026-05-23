@@ -1,5 +1,5 @@
 import http from './http'
-import type { ApiResponse, PageResult, Leaderboard, LeaderboardCreateRequest, LeaderboardUpdateRequest, LeaderboardInstance } from '@/types'
+import type { ApiResponse, PageResult, Leaderboard, LeaderboardCreateRequest, LeaderboardUpdateRequest, LeaderboardInstance, LeaderboardRankEntry } from '@/types'
 
 export function listLeaderboards(page: number = 1, pageSize: number = 20, tenantId?: string) {
   return http.get<ApiResponse<PageResult<Leaderboard>>>('/leaderboard/list', {
@@ -30,5 +30,11 @@ export function stopLeaderboard(leaderboardId: number) {
 export function getInstances(leaderboardId: number) {
   return http.get<ApiResponse<LeaderboardInstance[]>>('/leaderboard/instances', {
     params: { leaderboardId },
+  })
+}
+
+export function getRanking(leaderboardId: number, instanceId: number, from: number = 0, to: number = 99) {
+  return http.get<ApiResponse<LeaderboardRankEntry[]>>('/leaderboard/ranking', {
+    params: { leaderboardId, instanceId, from, to },
   })
 }

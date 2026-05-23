@@ -6,11 +6,14 @@ import com.skada.common.util.DistributedLock;
 import com.skada.mng.mapper.LeaderboardInstanceMapper;
 import com.skada.mng.mapper.LeaderboardMapper;
 import com.skada.mng.mapper.LeaderboardMetricMapper;
+import com.skada.mng.mapper.ScoreRecordMapper;
 import com.skada.mng.model.Leaderboard;
 import com.skada.mng.model.LeaderboardInstance;
 import com.skada.mng.model.LeaderboardMetric;
+import com.skada.mng.model.ScoreRecord;
 import com.skada.mng.model.request.LeaderboardCreateRequest;
 import com.skada.mng.model.request.LeaderboardUpdateRequest;
+import com.skada.mng.model.response.LeaderboardRankEntry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,17 +32,20 @@ public class LeaderboardConfigService {
     private final LeaderboardMapper leaderboardMapper;
     private final LeaderboardInstanceMapper instanceMapper;
     private final LeaderboardMetricMapper leaderboardMetricMapper;
+    private final ScoreRecordMapper scoreRecordMapper;
     private final TenantService tenantService;
     private final DistributedLock distributedLock;
 
     public LeaderboardConfigService(LeaderboardMapper leaderboardMapper,
                                     LeaderboardInstanceMapper instanceMapper,
                                     LeaderboardMetricMapper leaderboardMetricMapper,
+                                    ScoreRecordMapper scoreRecordMapper,
                                     TenantService tenantService,
                                     DistributedLock distributedLock) {
         this.leaderboardMapper = leaderboardMapper;
         this.instanceMapper = instanceMapper;
         this.leaderboardMetricMapper = leaderboardMetricMapper;
+        this.scoreRecordMapper = scoreRecordMapper;
         this.tenantService = tenantService;
         this.distributedLock = distributedLock;
     }
@@ -289,6 +295,71 @@ public class LeaderboardConfigService {
      */
     public List<LeaderboardInstance> getInstances(Long leaderboardId) {
         return instanceMapper.findByLeaderboardId(leaderboardId);
+    }
+
+    /**
+     * 查询排行榜实例的排名数据（管理后台只读）
+     * 从 MySQL 直接查询，按主指标排序，返回分页结果
+     */
+    public List<LeaderboardRankEntry> getRanking(Long leaderboardId, Long instanceId, int from, int to) {
+        if (from < 0 || to < 0 || from > to) {
+            throw new BusinessException("分页参数无效");
+        }
+
+        // 获取排行榜指标（按优先级排序）
+        List<LeaderboardMetric> lbMetrics = leaderboardMetricMapper.findByLeaderboardId(leaderboardId);
+        if (lbMetrics.isEmpty()) {
+            throw new BusinessException("排行榜未关联指标");
+        }
+        lbMetrics.sort(java.util.Comparator.comparingInt(LeaderboardMetric::getPriority));
+
+        LeaderboardMetric primaryMetric = lbMetrics.get(0);
+        int size = to - from + 1;
+
+        // 查询该实例所有用户的分数记录
+        List<ScoreRecord> allRecords = scoreRecordMapper.findByInstance(leaderboardId, instanceId);
+
+        // 按userId分组
+        java.util.Map<String, java.util.Map<Long, ScoreRecord>> userMetricMap = new java.util.LinkedHashMap<>();
+        for (ScoreRecord r : allRecords) {
+            userMetricMap.computeIfAbsent(r.getUserId(), k -> new java.util.HashMap<>()).put(r.getMetricId(), r);
+        }
+
+        // 按主指标排序
+        java.util.List<java.util.Map.Entry<String, java.util.Map<Long, ScoreRecord>>> sortedEntries =
+                new java.util.ArrayList<>(userMetricMap.entrySet());
+        String sortOrder = primaryMetric.getSortOrder() != null ? primaryMetric.getSortOrder() : "desc";
+        sortedEntries.sort((a, b) -> {
+            ScoreRecord sa = a.getValue().get(primaryMetric.getMetricId());
+            ScoreRecord sb = b.getValue().get(primaryMetric.getMetricId());
+            java.math.BigDecimal va = sa != null ? sa.getScore() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal vb = sb != null ? sb.getScore() : java.math.BigDecimal.ZERO;
+            return "asc".equals(sortOrder) ? va.compareTo(vb) : vb.compareTo(va);
+        });
+
+        // 分页截取
+        List<LeaderboardRankEntry> result = new java.util.ArrayList<>();
+        int rank = from + 1;
+        for (int i = from; i < Math.min(sortedEntries.size(), from + size); i++) {
+            var entry = sortedEntries.get(i);
+            LeaderboardRankEntry rankEntry = new LeaderboardRankEntry();
+            rankEntry.setRank(rank++);
+            rankEntry.setUserId(entry.getKey());
+
+            List<LeaderboardRankEntry.MetricValueEntry> values = new java.util.ArrayList<>();
+            for (LeaderboardMetric lm : lbMetrics) {
+                ScoreRecord sr = entry.getValue().get(lm.getMetricId());
+                LeaderboardRankEntry.MetricValueEntry mve = new LeaderboardRankEntry.MetricValueEntry();
+                mve.setMetricId(sr != null ? sr.getMetricExternalId() : "");
+                mve.setMetricName(sr != null ? sr.getMetricName() : "");
+                mve.setValue(sr != null ? sr.getScore() : java.math.BigDecimal.ZERO);
+                mve.setPayload(sr != null ? sr.getPayload() : null);
+                values.add(mve);
+            }
+            rankEntry.setMetricValues(values);
+            result.add(rankEntry);
+        }
+        return result;
     }
 
     private void validateCreateRequest(LeaderboardCreateRequest request) {

@@ -7,6 +7,7 @@ import com.skada.mng.model.Leaderboard;
 import com.skada.mng.model.LeaderboardInstance;
 import com.skada.mng.model.request.LeaderboardCreateRequest;
 import com.skada.mng.model.request.LeaderboardUpdateRequest;
+import com.skada.mng.model.response.LeaderboardRankEntry;
 import com.skada.mng.service.LeaderboardConfigService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -88,7 +89,18 @@ public class LeaderboardConfigController {
      * 查询排行榜的所有实例（含历史实例），供管理后台查看
      */
     @GetMapping("/instances")
-    public BaseResponse<List<LeaderboardInstance>> getInstances(Long leaderboardId) {
+    public BaseResponse<List<LeaderboardInstance>> getInstances(@RequestParam Long leaderboardId) {
         return BaseResponse.success(configService.getInstances(leaderboardId));
+    }
+
+    /**
+     * 查询排行榜实例的排名数据，供管理后台查看（支持分页）
+     */
+    @GetMapping("/ranking")
+    public BaseResponse<List<LeaderboardRankEntry>> getRanking(@RequestParam Long leaderboardId,
+                                                                @RequestParam Long instanceId,
+                                                                @RequestParam(defaultValue = "0") int from,
+                                                                @RequestParam(defaultValue = "99") int to) {
+        return BaseResponse.success(configService.getRanking(leaderboardId, instanceId, from, to));
     }
 }

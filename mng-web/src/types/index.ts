@@ -82,6 +82,7 @@ export interface MetricUpdateRequest {
 /** 排行榜计划 */
 export interface Leaderboard {
   id: number
+  planId: string
   tenantId: string
   name: string
   startTime: number
@@ -141,9 +142,25 @@ export interface LeaderboardUpdateRequest {
 /** 排行榜实例 */
 export interface LeaderboardInstance {
   id: number
+  instanceId: string
   leaderboardId: number
   instanceSeq: number
   startTime: number
   endTime: number | null
   status: string
+}
+
+/** 排名条目 */
+export interface LeaderboardRankEntry {
+  rank: number
+  userId: string
+  metricValues: MetricValueEntry[]
+}
+
+/** 指标值条目 */
+export interface MetricValueEntry {
+  metricId: string
+  metricName: string
+  value: number
+  payload: string | null
 }
