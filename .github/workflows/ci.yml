@@ -12,6 +12,10 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.build.outputs.result }}
+      testSummary: ${{ steps.extract-tests.outputs.summary }}
+      coverage: ${{ steps.extract-tests.outputs.coverage }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +37,37 @@ jobs:
           else
             echo "result=failure" >> $GITHUB_OUTPUT
             exit 1
+          fi
+
+      - name: 提取测试结果摘要
+        id: extract-tests
+        if: always()
+        run: |
+          # 提取 surefire 测试汇总（取最后一条 "Tests run:" 行）
+          TEST_LINE=$(grep "Tests run:" build.log | tail -1 || true)
+          if [ -n "$TEST_LINE" ]; then
+            echo "summary=${TEST_LINE//,/ }" >> $GITHUB_OUTPUT
+          else
+            echo "summary=无测试结果" >> $GITHUB_OUTPUT
+          fi
+
+          # 提取 JaCoCo 行覆盖率
+          COV_FILE=api-service/target/site/jacoco/jacoco.csv
+          if [ -f "$COV_FILE" ]; then
+            COV=$(python3 -c "
+  import csv
+  with open('$COV_FILE') as f:
+      total_line_m = total_line_c = 0
+      for row in csv.DictReader(f):
+          total_line_m += int(row['LINE_MISSED'])
+          total_line_c += int(row['LINE_COVERED'])
+      total = total_line_m + total_line_c
+      pct = total_line_c / total * 100 if total > 0 else 0
+      print(f'{pct:.1f}%')
+  ")
+            echo "coverage=${COV}" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=N/A" >> $GITHUB_OUTPUT
           fi
 
   frontend:
@@ -75,6 +110,8 @@ jobs:
         env:
           BE_RESULT: ${{ needs.backend.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
+          TEST_SUMMARY: ${{ needs.backend.outputs.testSummary }}
+          COVERAGE: ${{ needs.backend.outputs.coverage }}
           WEBHOOK: ${{ secrets.FEISHU_WEBHOOK_URL }}
           BRANCH: ${{ github.head_ref || github.ref_name }}
           REPO: ${{ github.repository }}
@@ -110,6 +147,15 @@ jobs:
           BE_EMOJI="✅"; [ "$BE_RESULT" != "success" ] && BE_EMOJI="❌"
           FRONTEND_EMOJI="✅"; [ "$FRONTEND_RESULT" != "success" ] && FRONTEND_EMOJI="⚠️"
 
+          # 构建后端详情行
+          BE_DETAIL="${BE_EMOJI} Java 后端"
+          if [ -n "$TEST_SUMMARY" ] && [ "$TEST_SUMMARY" != "无测试结果" ]; then
+            BE_DETAIL="${BE_DETAIL}\n 单测: ${TEST_SUMMARY}"
+          fi
+          if [ -n "$COVERAGE" ] && [ "$COVERAGE" != "N/A" ]; then
+            BE_DETAIL="${BE_DETAIL}\n 覆盖率: ${COVERAGE}"
+          fi
+
           curl -s --connect-timeout 30 --max-time 60 --retry 2 -X POST "$WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d "$(cat <<JSON
@@ -133,7 +179,7 @@ jobs:
                   "tag": "div",
                   "text": {
                     "tag": "lark_md",
-                    "content": "${BE_EMOJI} Java 后端\n${FRONTEND_EMOJI} Vue 前端"
+                    "content": "${BE_DETAIL}\n${FRONTEND_EMOJI} Vue 前端"
                   }
                 },
                 {
