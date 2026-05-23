@@ -51,20 +51,10 @@ jobs:
             echo "summary=无测试结果" >> $GITHUB_OUTPUT
           fi
 
-          # 提取 JaCoCo 行覆盖率
+          # 提取 JaCoCo 行覆盖率（jacoco.csv 第7列=LINE_MISSED, 第8列=LINE_COVERED）
           COV_FILE=api-service/target/site/jacoco/jacoco.csv
           if [ -f "$COV_FILE" ]; then
-            COV=$(python3 -c "
-  import csv
-  with open('$COV_FILE') as f:
-      total_line_m = total_line_c = 0
-      for row in csv.DictReader(f):
-          total_line_m += int(row['LINE_MISSED'])
-          total_line_c += int(row['LINE_COVERED'])
-      total = total_line_m + total_line_c
-      pct = total_line_c / total * 100 if total > 0 else 0
-      print(f'{pct:.1f}%')
-  ")
+            COV=$(awk -F, 'NR>1{lm+=$7;lc+=$8}END{t=lm+lc;printf "%.1f%%\n",t>0?lc/t*100:0}' "$COV_FILE")
             echo "coverage=${COV}" >> $GITHUB_OUTPUT
           else
             echo "coverage=N/A" >> $GITHUB_OUTPUT
