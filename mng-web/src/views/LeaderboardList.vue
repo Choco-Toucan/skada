@@ -16,7 +16,7 @@
           @change="fetchLeaderboards"
         >
           <a-select-option v-for="t in tenants" :key="t.tenantId" :value="t.tenantId">
-            {{ t.name }}
+            {{ t.name }} ({{ t.tenantId }})
           </a-select-option>
         </a-select>
       </div>
@@ -32,6 +32,9 @@
           <span v-if="!loading && !error">暂无排行榜数据</span>
         </template>
         <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'tenantId'">
+            <span>{{ tenantMap[record.tenantId]?.name || record.tenantId }} ({{ record.tenantId }})</span>
+          </template>
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 'active' ? 'green' : 'red'">
               {{ record.status === 'active' ? '进行中' : '已终止' }}
@@ -65,6 +68,7 @@ import type { Leaderboard, Tenant } from '@/types'
 
 const list = ref<Leaderboard[]>([])
 const tenants = ref<Tenant[]>([])
+const tenantMap = ref<Record<string, Tenant>>({})
 const filterTenantId = ref<string | undefined>(undefined)
 const loading = ref(false)
 const error = ref(false)
@@ -77,7 +81,7 @@ const stoppingId = ref<number | null>(null)
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
   { title: '名称', dataIndex: 'name', key: 'name' },
-  { title: '所属租户', dataIndex: 'tenantId', key: 'tenantId' },
+  { title: '所属租户', key: 'tenantId' },
   { title: '滚动策略', key: 'rollStrategy' },
   { title: '当前实例', dataIndex: 'currentInstanceId', key: 'currentInstanceId' },
   { title: '状态', key: 'status' },
@@ -109,6 +113,7 @@ function onPageChange(p: number, ps: number) {
 async function fetchTenants() {
   const res = await listAllTenants()
   tenants.value = res.data.data.records
+  tenantMap.value = Object.fromEntries(res.data.data.records.map(t => [t.tenantId, t]))
 }
 
 async function handleRoll(record: Leaderboard) {

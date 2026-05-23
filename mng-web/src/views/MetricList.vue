@@ -12,7 +12,7 @@
         <a-form-item label="租户" name="tenantId">
           <a-select v-model:value="newForm.tenantId" placeholder="选择租户" style="width: 200px" @change="fetchMetrics">
             <a-select-option v-for="t in tenants" :key="t.tenantId" :value="t.tenantId">
-              {{ t.name }}
+              {{ t.name }} ({{ t.tenantId }})
             </a-select-option>
           </a-select>
         </a-form-item>
