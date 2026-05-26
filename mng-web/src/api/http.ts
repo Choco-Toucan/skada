@@ -2,8 +2,16 @@ import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axio
 import type { ApiResponse } from '@/types'
 import { message } from 'ant-design-vue'
 
+declare global {
+  interface Window {
+    __SKADA_CONFIG__: {
+      apiBaseUrl: string
+    }
+  }
+}
+
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  baseURL: window.__SKADA_CONFIG__?.apiBaseUrl || '/api/v1',
   timeout: 15000,
 })
 
