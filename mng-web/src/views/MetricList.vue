@@ -8,7 +8,7 @@
         <span>先选择租户查看和管理指标</span>
       </div>
 
-      <a-form layout="inline" @finish="handleCreate" style="margin-bottom: 16px">
+      <a-form layout="inline" :model="newForm" @finish="handleCreate" style="margin-bottom: 16px">
         <a-form-item label="租户" name="tenantId">
           <a-select v-model:value="newForm.tenantId" placeholder="选择租户" style="width: 200px" @change="fetchMetrics">
             <a-select-option v-for="t in tenants" :key="t.tenantId" :value="t.tenantId">
