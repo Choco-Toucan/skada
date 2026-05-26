@@ -1,3 +1,3 @@
 window.__SKADA_CONFIG__ = {
-  apiBaseUrl: '/skada/mng-web/api/v1',
+  apiBaseUrl: '/skada/mng-service/api/v1',
 }
