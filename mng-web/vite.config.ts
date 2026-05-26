@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
         '@': resolve(__dirname, 'src'),
       },
     },
+    base: '/skada/mng-web/',
     server: {
       port: 3000,
       proxy: {
