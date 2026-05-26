@@ -4,7 +4,7 @@
 > **最后更新**: 2026-05-20  
 > **服务域名**:
 > - `local` 环境: `http://localhost:8801`
-> - `test` 环境: 待部署后提供（接入时由 Skada 运营方提供）
+> - `test` 环境: `https://toucan-api-test.invooooke.cn/skada`
 
 ---
 

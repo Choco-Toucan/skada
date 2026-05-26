@@ -128,7 +128,7 @@ mvn spring-boot:run -pl api-service -Dspring-boot.run.arguments="--spring.profil
 
 ### 环境
 
-| 环境 | profile | MySQL | Redis |
-|------|---------|-------|-------|
-| local | `local` (默认) | localhost:3306 | localhost:6379 |
-| test | `test` | 阿里云 RDS | 待定 |
+| 环境 | API Base URL | profile | MySQL | Redis |
+|------|-------------|---------|-------|-------|
+| local | `http://localhost:8801` | `local` (默认) | localhost:3306 | localhost:6379 |
+| test | `https://toucan-api-test.invooooke.cn/skada` | `test` | 阿里云 RDS | 待定 |
