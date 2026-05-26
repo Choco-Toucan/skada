@@ -8,6 +8,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理器
@@ -44,6 +45,12 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .orElse("参数校验失败");
         return BaseResponse.error(BizCode.PARAM_MISSING, message);
+    }
+
+    /** 请求路径不存在，返回404 */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public BaseResponse<Void> handleNoResourceFound(NoResourceFoundException e) {
+        return BaseResponse.error(BizCode.RESOURCE_NOT_FOUND, "请求的资源不存在");
     }
 
     /** 未捕获的其他异常，统一作为内部错误返回，不暴露异常细节 */
