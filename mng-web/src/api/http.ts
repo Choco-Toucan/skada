@@ -11,7 +11,7 @@ declare global {
 }
 
 const http = axios.create({
-  baseURL: window.__SKADA_CONFIG__?.apiBaseUrl || '/api/v1',
+  baseURL: window.__SKADA_CONFIG__?.apiBaseUrl || '/skada/mng-web/api/v1',
   timeout: 15000,
 })
 
