@@ -2,7 +2,8 @@
 
 > **版本**: v1.3  
 > **最后更新**: 2026-05-20  
-> **服务域名**:
+> 
+> **API 地址**：下文示例中 `{API_BASE_URL}` 为占位符，请替换为对应环境的地址：
 > - `local` 环境: `http://localhost:8801`
 > - `test` 环境: `https://toucan-api-test.invooooke.cn/skada`
 
