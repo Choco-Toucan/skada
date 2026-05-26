@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_PROXY_TARGET || 'http://localhost:8811',
           changeOrigin: true,
         },
+        '/skada/mng-web/api': {
+          target: env.VITE_API_PROXY_TARGET || 'http://localhost:8811',
+          changeOrigin: true,
+        },
       },
     },
   }
