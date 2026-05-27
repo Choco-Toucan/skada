@@ -25,6 +25,10 @@
         <result column="update_by" property="updateBy"/>
     </resultMap>
 
+    <resultMap id="ListMap" type="com.skada.mng.model.Leaderboard" extends="BaseMap">
+        <result column="current_instance_business_id" property="currentInstanceBusinessId"/>
+    </resultMap>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO leaderboard_plan (plan_id, tenant_id, name, start_time, end_time, max_query_users,
                                  allow_duplicate_report, allow_history_query, roll_strategy,
@@ -62,24 +66,38 @@
         SELECT * FROM leaderboard_plan WHERE plan_id = #{planId} LIMIT 1
     </select>
 
-    <select id="findByTenantId" resultMap="BaseMap">
-        SELECT * FROM leaderboard_plan WHERE tenant_id = #{tenantId} ORDER BY id DESC
+    <select id="findByTenantId" resultMap="ListMap">
+        SELECT lp.*, li.instance_id AS current_instance_business_id
+        FROM leaderboard_plan lp
+        LEFT JOIN leaderboard_instance li ON li.id = lp.current_instance_id
+        WHERE lp.tenant_id = #{tenantId}
+        ORDER BY lp.id DESC
     </select>
 
-    <select id="findAll" resultMap="BaseMap">
-        SELECT * FROM leaderboard_plan ORDER BY id DESC
+    <select id="findAll" resultMap="ListMap">
+        SELECT lp.*, li.instance_id AS current_instance_business_id
+        FROM leaderboard_plan lp
+        LEFT JOIN leaderboard_instance li ON li.id = lp.current_instance_id
+        ORDER BY lp.id DESC
     </select>
 
-    <select id="findAllWithPage" resultMap="BaseMap">
-        SELECT * FROM leaderboard_plan ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+    <select id="findAllWithPage" resultMap="ListMap">
+        SELECT lp.*, li.instance_id AS current_instance_business_id
+        FROM leaderboard_plan lp
+        LEFT JOIN leaderboard_instance li ON li.id = lp.current_instance_id
+        ORDER BY lp.id DESC LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="count" resultType="long">
         SELECT COUNT(*) FROM leaderboard_plan
     </select>
 
-    <select id="findByTenantIdWithPage" resultMap="BaseMap">
-        SELECT * FROM leaderboard_plan WHERE tenant_id = #{tenantId} ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+    <select id="findByTenantIdWithPage" resultMap="ListMap">
+        SELECT lp.*, li.instance_id AS current_instance_business_id
+        FROM leaderboard_plan lp
+        LEFT JOIN leaderboard_instance li ON li.id = lp.current_instance_id
+        WHERE lp.tenant_id = #{tenantId}
+        ORDER BY lp.id DESC LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="countByTenantId" resultType="long">

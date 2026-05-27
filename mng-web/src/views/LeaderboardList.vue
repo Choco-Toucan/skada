@@ -160,7 +160,7 @@ const columns = [
   { title: '名称', dataIndex: 'name', key: 'name' },
   { title: '所属租户', key: 'tenantId' },
   { title: '滚动策略', key: 'rollStrategy' },
-  { title: '当前实例', dataIndex: 'currentInstanceId', key: 'currentInstanceId' },
+  { title: '当前实例', dataIndex: 'currentInstanceBusinessId', key: 'currentInstanceId' },
   { title: '状态', key: 'status' },
   { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
   { title: '操作', key: 'actions', width: 300 },

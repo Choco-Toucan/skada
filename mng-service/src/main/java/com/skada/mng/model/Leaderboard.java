@@ -20,6 +20,7 @@ public class Leaderboard {
     private Integer rollUserCount;
     private String status;
     private Long currentInstanceId;
+    private String currentInstanceBusinessId;
     private String createTime;
     private String updateTime;
     private String createBy;
@@ -55,6 +56,8 @@ public class Leaderboard {
     public void setStatus(String status) { this.status = status; }
     public Long getCurrentInstanceId() { return currentInstanceId; }
     public void setCurrentInstanceId(Long currentInstanceId) { this.currentInstanceId = currentInstanceId; }
+    public String getCurrentInstanceBusinessId() { return currentInstanceBusinessId; }
+    public void setCurrentInstanceBusinessId(String currentInstanceBusinessId) { this.currentInstanceBusinessId = currentInstanceBusinessId; }
     public String getCreateTime() { return createTime; }
     public void setCreateTime(String createTime) { this.createTime = createTime; }
     public String getUpdateTime() { return updateTime; }

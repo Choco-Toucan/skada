@@ -96,6 +96,7 @@ export interface Leaderboard {
   rollUserCount: number | null
   status: string
   currentInstanceId: number | null
+  currentInstanceBusinessId: string | null
   createTime: string
 }
 
