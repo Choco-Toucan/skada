@@ -33,7 +33,16 @@ C端 API 服务 — 对外提供排行榜查询和分数上报接口。端口 **
 
 ## 分数上报
 
-### 单条上报（多指标）
+上报模式分为两种（`metrics[].mode` 字段，默认 `set`）：
+
+| mode | 含义 | Redis | MySQL |
+|------|------|-------|-------|
+| `set`（默认） | 覆盖模式，直接写入绝对值 | ZADD | INSERT |
+| `inc` | 增量模式，累加偏移量（可正可负） | ZINCRBY | INSERT ... ON DUPLICATE KEY UPDATE |
+
+增量模式不受"禁止重复上报"约束，首次上报若无历史记录则以增量值作为初始分。
+
+### 单条上报（覆盖模式）
 ```bash
 curl -X POST {API_BASE_URL}/api/v1/score/submit \
   -H "Content-Type: application/json" \
@@ -47,6 +56,22 @@ curl -X POST {API_BASE_URL}/api/v1/score/submit \
         { "metricId": "mt_yyyy", "value": 5000 }
     ],
     "payload": "{\"nickname\": \"Alice\"}"
+  }'
+```
+
+### 单条上报（增量模式）
+```bash
+curl -X POST {API_BASE_URL}/api/v1/score/submit \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: tn_xxxx" \
+  -H "X-Timestamp: $(date +%s%3N)" \
+  -H "X-Sign: <SHA256(timestamp+secretKey+skada)>" \
+  -d '{
+    "userId": "player_001",
+    "metrics": [
+        { "metricId": "mt_xxxx", "value": 5,    "mode": "inc" },
+        { "metricId": "mt_yyyy", "value": -10,  "mode": "inc" }
+    ]
   }'
 ```
 
