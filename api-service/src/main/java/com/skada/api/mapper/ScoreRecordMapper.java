@@ -13,6 +13,9 @@ public interface ScoreRecordMapper {
 
     int insertBatch(List<ScoreRecord> records);
 
+    /** 增量模式：INSERT 或 ON DUPLICATE KEY 时原子累加分数 */
+    int insertOrIncrement(ScoreRecord record);
+
     List<ScoreRecord> findRanking(@Param("leaderboardId") Long leaderboardId,
                                   @Param("instanceId") Long instanceId,
                                   @Param("metricId") Long metricId,

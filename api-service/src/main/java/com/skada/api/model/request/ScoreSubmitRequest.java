@@ -21,6 +21,7 @@ public class ScoreSubmitRequest {
         private String metricId;
         private BigDecimal value;
         private String payload;
+        private String mode;
 
         public String getMetricId() { return metricId; }
         public void setMetricId(String metricId) { this.metricId = metricId; }
@@ -28,5 +29,7 @@ public class ScoreSubmitRequest {
         public void setValue(BigDecimal value) { this.value = value; }
         public String getPayload() { return payload; }
         public void setPayload(String payload) { this.payload = payload; }
+        public String getMode() { return mode; }
+        public void setMode(String mode) { this.mode = mode; }
     }
 }

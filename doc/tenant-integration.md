@@ -190,8 +190,9 @@ Content-Type: application/json
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `metricId` | string | 是 | 指标外部ID，格式 `mt_xxxxxxxx` |
-| `value` | number | 是 | 指标值，支持小数（最多4位） |
+| `value` | number | 是 | 指标值（`mode=set`时为绝对值，`mode=inc`时为偏移量，可正可负） |
 | `payload` | string | 否 | 透传数据，JSON字符串，查询时原样下发 |
+| `mode` | string | 否 | 上报模式：`set`=覆盖（默认），`inc`=增量。增量模式下 score = 原值 + value |
 
 **示例**：
 
@@ -231,10 +232,34 @@ curl -X POST {API_BASE_URL}/api/v1/score/submit \
 }
 ```
 
+**增量模式示例**：
+
+```bash
+TIMESTAMP=$(date +%s%3N)
+SIGN=$(echo -n "${TIMESTAMP}sk_550e8400-e29b-41d4-a716-446655440000skada" | shasum -a 256 | cut -d' ' -f1)
+
+# mode=inc 增量上报：用户本次击杀+5，经验+1500
+curl -X POST {API_BASE_URL}/api/v1/score/submit \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: tn_a1b2c3d4" \
+  -H "X-Timestamp: ${TIMESTAMP}" \
+  -H "X-Sign: ${SIGN}" \
+  -d '{
+    "userId": "player_001",
+    "metrics": [
+      { "metricId": "mt_killcount", "value": 5,    "mode": "inc" },
+      { "metricId": "mt_exp",       "value": 1500, "mode": "inc" }
+    ]
+  }'
+```
+
+> 增量模式不受"不允许重复上报"限制 —— 增量本身就是多次更新。首次上报时若无历史记录，以增量值作为初始分。
+
 **业务规则**：
 
 - 上报的指标集合必须精确匹配某个排行榜计划关联的指标集合，否则上报失败
-- 如果排行榜计划设置了"不允许重复上报"，同一用户重复上报会返回错误
+- 如果排行榜计划设置了"不允许重复上报"，覆盖模式（默认）下同一用户重复上报会返回错误
+- 增量模式（`mode=inc`）不受重复上报限制，可多次累加
 - 排行榜计划尚未开始或已终止时，上报会被拒绝
 
 ---

@@ -173,6 +173,42 @@ class ScoreControllerTest {
             BaseResponse<Void> resp = controller.submit(req, httpRequest);
             assertThat(resp.getCode()).isEqualTo(200);
         }
+
+        @Test
+        @DisplayName("增量模式成功提交")
+        void submit_incMode() {
+            mockTenantId();
+            ScoreSubmitRequest req = new ScoreSubmitRequest();
+            req.setUserId("user-001");
+
+            ScoreSubmitRequest.MetricValueRequest mv = new ScoreSubmitRequest.MetricValueRequest();
+            mv.setMetricId("m1");
+            mv.setValue(BigDecimal.valueOf(5));
+            mv.setMode("inc");
+            req.setMetrics(List.of(mv));
+
+            BaseResponse<Void> resp = controller.submit(req, httpRequest);
+            assertThat(resp.getCode()).isEqualTo(200);
+            verify(scoreService).submit(eq(TENANT_ID), eq("user-001"), anyList());
+        }
+
+        @Test
+        @DisplayName("mode为非法值时抛出参数异常")
+        void submit_invalidMode() {
+            mockTenantId();
+            ScoreSubmitRequest req = new ScoreSubmitRequest();
+            req.setUserId("user-001");
+
+            ScoreSubmitRequest.MetricValueRequest mv = new ScoreSubmitRequest.MetricValueRequest();
+            mv.setMetricId("m1");
+            mv.setValue(BigDecimal.ONE);
+            mv.setMode("invalid");
+            req.setMetrics(List.of(mv));
+
+            assertThatThrownBy(() -> controller.submit(req, httpRequest))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("mode");
+        }
     }
 
     // ==================== batchSubmit ====================

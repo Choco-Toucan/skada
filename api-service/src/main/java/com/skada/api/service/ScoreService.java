@@ -78,8 +78,8 @@ public class ScoreService {
         // 校验指标属于该计划
         validateMetricsAgainstPlan(leaderboardId, metrics, metricIdMap);
 
-        // 检查是否允许重复上报
-        if (lb.getAllowDuplicateReport() == 0) {
+        // 检查是否允许重复上报（增量模式不限制）
+        if (lb.getAllowDuplicateReport() == 0 && !isAllIncrement(metrics)) {
             ScoreRecord existing = scoreRecordMapper.findByUserAndInstance(
                     leaderboardId, instance.getId(), userId);
             if (existing != null) {
@@ -126,6 +126,9 @@ public class ScoreService {
 
         if (lb.getAllowDuplicateReport() == 0) {
             for (var item : items) {
+                if (isAllIncrement(item.getMetrics())) {
+                    continue;
+                }
                 ScoreRecord existing = scoreRecordMapper.findByUserAndInstance(
                         leaderboardId, instance.getId(), item.getUserId());
                 if (existing != null) {
@@ -197,29 +200,51 @@ public class ScoreService {
     private void writeMetrics(String tenantId, Long leaderboardId, Long instanceId,
                                String userId, List<MetricValue> metrics,
                                Map<String, Long> metricIdMap) {
-        List<ScoreRecord> records = new ArrayList<>();
+        List<ScoreRecord> setRecords = new ArrayList<>();
         for (MetricValue mv : metrics) {
             Long internalMetricId = metricIdMap.get(mv.getMetricId());
             String rankingKey = String.format(RANKING_KEY_PREFIX, leaderboardId, instanceId, internalMetricId);
-            redisTemplate.opsForZSet().add(rankingKey, userId, mv.getValue().doubleValue());
 
-            ScoreRecord r = new ScoreRecord();
-            r.setTenantId(tenantId);
-            r.setLeaderboardId(leaderboardId);
-            r.setInstanceId(instanceId);
-            r.setMetricId(internalMetricId);
-            r.setUserId(userId);
-            r.setScore(mv.getValue());
-            r.setPayload(mv.getPayload());
-            records.add(r);
+            if (mv.isIncrement()) {
+                // 增量模式：Redis ZINCRBY + MySQL ON DUPLICATE KEY UPDATE
+                redisTemplate.opsForZSet().incrementScore(rankingKey, userId, mv.getValue().doubleValue());
+
+                ScoreRecord r = new ScoreRecord();
+                r.setTenantId(tenantId);
+                r.setLeaderboardId(leaderboardId);
+                r.setInstanceId(instanceId);
+                r.setMetricId(internalMetricId);
+                r.setUserId(userId);
+                r.setScore(mv.getValue());
+                r.setPayload(mv.getPayload());
+                scoreRecordMapper.insertOrIncrement(r);
+            } else {
+                // 覆盖模式：Redis ZADD + MySQL INSERT
+                redisTemplate.opsForZSet().add(rankingKey, userId, mv.getValue().doubleValue());
+
+                ScoreRecord r = new ScoreRecord();
+                r.setTenantId(tenantId);
+                r.setLeaderboardId(leaderboardId);
+                r.setInstanceId(instanceId);
+                r.setMetricId(internalMetricId);
+                r.setUserId(userId);
+                r.setScore(mv.getValue());
+                r.setPayload(mv.getPayload());
+                setRecords.add(r);
+            }
         }
-        if (!records.isEmpty()) {
+        if (!setRecords.isEmpty()) {
             try {
-                scoreRecordMapper.insertBatch(records);
+                scoreRecordMapper.insertBatch(setRecords);
             } catch (DuplicateKeyException e) {
                 throw new BusinessException("该用户已上报过分数，不允许重复上报");
             }
         }
+    }
+
+    /** 判断所有指标是否都是增量模式 */
+    private boolean isAllIncrement(List<MetricValue> metrics) {
+        return metrics != null && metrics.stream().allMatch(MetricValue::isIncrement);
     }
 
     private Leaderboard validateAndGetLeaderboard(Long leaderboardId, String tenantId) {
@@ -326,6 +351,7 @@ public class ScoreService {
         private String metricId;
         private BigDecimal value;
         private String payload;
+        private String mode;
 
         public String getMetricId() { return metricId; }
         public void setMetricId(String metricId) { this.metricId = metricId; }
@@ -333,6 +359,9 @@ public class ScoreService {
         public void setValue(BigDecimal value) { this.value = value; }
         public String getPayload() { return payload; }
         public void setPayload(String payload) { this.payload = payload; }
+        public String getMode() { return mode; }
+        public void setMode(String mode) { this.mode = mode; }
+        public boolean isIncrement() { return "inc".equals(mode); }
     }
 
     /**

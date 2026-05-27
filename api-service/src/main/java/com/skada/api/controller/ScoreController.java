@@ -90,6 +90,9 @@ public class ScoreController {
             if (mv.getValue() == null) {
                 throw new IllegalArgumentException("metrics 中每条数据必须包含 value");
             }
+            if (mv.getMode() != null && !"set".equals(mv.getMode()) && !"inc".equals(mv.getMode())) {
+                throw new IllegalArgumentException("mode 仅支持 set 或 inc");
+            }
         }
     }
 
@@ -114,6 +117,9 @@ public class ScoreController {
                 if (mv.getValue() == null) {
                     throw new IllegalArgumentException("metrics 中每条数据必须包含 value");
                 }
+                if (mv.getMode() != null && !"set".equals(mv.getMode()) && !"inc".equals(mv.getMode())) {
+                    throw new IllegalArgumentException("mode 仅支持 set 或 inc");
+                }
             }
         }
     }
@@ -126,6 +132,7 @@ public class ScoreController {
             mv.setMetricId(rm.getMetricId());
             mv.setValue(rm.getValue());
             mv.setPayload(rm.getPayload());
+            mv.setMode(rm.getMode());
             result.add(mv);
         }
         return result;

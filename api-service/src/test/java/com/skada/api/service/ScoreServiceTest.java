@@ -566,6 +566,144 @@ class ScoreServiceTest {
         verify(instanceMapper, never()).closeInstance(anyLong(), anyLong());
     }
 
+    // ==================== 增量模式测试 ====================
+
+    private ScoreService.MetricValue incMetricValue(String metricId, double delta) {
+        ScoreService.MetricValue mv = new ScoreService.MetricValue();
+        mv.setMetricId(metricId);
+        mv.setValue(BigDecimal.valueOf(delta));
+        mv.setMode("inc");
+        return mv;
+    }
+
+    @Test
+    @DisplayName("submit: 增量模式成功上报")
+    void submit_incMode_success() {
+        mockMetricResolve();
+        mockLeaderboardMatch();
+        mockRedisOps();
+
+        @SuppressWarnings("unchecked")
+        ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
+        when(zSetOps.incrementScore(anyString(), eq(USER_ID), eq(5.0))).thenReturn(5.0);
+
+        var metrics = List.of(incMetricValue(METRIC_EXT_ID, 5.0));
+        assertThatCode(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
+                .doesNotThrowAnyException();
+
+        verify(zSetOps).incrementScore(anyString(), eq(USER_ID), eq(5.0));
+        verify(zSetOps, never()).add(anyString(), anyString(), anyDouble());
+        verify(scoreRecordMapper).insertOrIncrement(any(ScoreRecord.class));
+        verify(scoreRecordMapper, never()).insertBatch(anyList());
+    }
+
+    @Test
+    @DisplayName("submit: 增量模式允许重复上报(不检查allowDuplicateReport)")
+    void submit_incMode_allowsRepeatWhenDuplicateNotAllowed() {
+        mockMetricResolve();
+        Leaderboard lb = mockLeaderboardMatch();
+        lb.setAllowDuplicateReport(0);
+        mockRedisOps();
+
+        var metrics = List.of(incMetricValue(METRIC_EXT_ID, -10.0));
+        assertThatCode(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
+                .doesNotThrowAnyException();
+
+        // 不应该检查重复
+        verify(scoreRecordMapper, never()).findByUserAndInstance(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("submit: 增量模式Redis使用ZINCRBY")
+    void submit_incMode_usesZincrby() {
+        mockMetricResolve();
+        mockLeaderboardMatch();
+        mockRedisOps();
+
+        @SuppressWarnings("unchecked")
+        ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
+
+        var metrics = List.of(incMetricValue(METRIC_EXT_ID, 3.0));
+        scoreService.submit(TENANT_ID, USER_ID, metrics);
+
+        verify(zSetOps).incrementScore(anyString(), eq(USER_ID), eq(3.0));
+        verify(zSetOps, never()).add(anyString(), anyString(), anyDouble());
+    }
+
+    @Test
+    @DisplayName("submit: 增量模式可上报负值")
+    void submit_incMode_negativeValue() {
+        mockMetricResolve();
+        mockLeaderboardMatch();
+        mockRedisOps();
+
+        @SuppressWarnings("unchecked")
+        ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
+        when(zSetOps.incrementScore(anyString(), eq(USER_ID), eq(-50.0))).thenReturn(-50.0);
+
+        var metrics = List.of(incMetricValue(METRIC_EXT_ID, -50.0));
+        assertThatCode(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("batchSubmit: 增量模式跳过重复检测")
+    void batchSubmit_incMode_skipsDuplicateCheck() {
+        Metric m = new Metric();
+        m.setId(10L); m.setMetricId("m1");
+        when(metricMapper.findByMetricId("m1")).thenReturn(m);
+
+        LeaderboardMetric lm = new LeaderboardMetric();
+        lm.setLeaderboardId(LEADERBOARD_ID); lm.setMetricId(10L);
+        when(leaderboardMetricMapper.findByMetricIds(anyList())).thenReturn(List.of(lm));
+
+        Leaderboard lb = new Leaderboard();
+        lb.setId(LEADERBOARD_ID); lb.setTenantId(TENANT_ID); lb.setStatus("active");
+        lb.setStartTime(System.currentTimeMillis() - 60_000); lb.setEndTime(null);
+        lb.setAllowDuplicateReport(0);
+        when(leaderboardMapper.findById(LEADERBOARD_ID)).thenReturn(lb);
+
+        LeaderboardInstance instance = new LeaderboardInstance();
+        instance.setId(INSTANCE_ID); instance.setInstanceId("li-001");
+        instance.setLeaderboardId(LEADERBOARD_ID); instance.setInstanceSeq(1);
+        when(instanceMapper.findActiveByLeaderboardId(LEADERBOARD_ID)).thenReturn(instance);
+
+        mockRedisOps();
+
+        ScoreService.BatchSubmitItem item = new ScoreService.BatchSubmitItem();
+        item.setUserId(USER_ID);
+        item.setMetrics(List.of(incMetricValue("m1", 10.0)));
+
+        assertThatCode(() -> scoreService.batchSubmit(TENANT_ID, List.of(item)))
+                .doesNotThrowAnyException();
+
+        verify(scoreRecordMapper, never()).findByUserAndInstance(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("MetricValue: isIncrement mode=inc返回true")
+    void metricValue_isIncrement_returnsTrue() {
+        ScoreService.MetricValue mv = incMetricValue("m1", 1.0);
+        assertThat(mv.isIncrement()).isTrue();
+    }
+
+    @Test
+    @DisplayName("MetricValue: isIncrement mode=null返回false")
+    void metricValue_isIncrement_nullReturnsFalse() {
+        ScoreService.MetricValue mv = metricValue("m1", 1.0);
+        assertThat(mv.isIncrement()).isFalse();
+    }
+
+    @Test
+    @DisplayName("MetricValue: isIncrement mode=set返回false")
+    void metricValue_isIncrement_setReturnsFalse() {
+        ScoreService.MetricValue mv = new ScoreService.MetricValue();
+        mv.setMetricId("m1");
+        mv.setValue(BigDecimal.ONE);
+        mv.setMode("set");
+        assertThat(mv.isIncrement()).isFalse();
+    }
+
     // ==================== MetricValue / BatchSubmitItem 测试 ====================
 
     @Test

@@ -29,6 +29,12 @@
         </foreach>
     </insert>
 
+    <insert id="insertOrIncrement" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO score_record (tenant_id, leaderboard_id, instance_id, metric_id, user_id, score, payload)
+        VALUES (#{tenantId}, #{leaderboardId}, #{instanceId}, #{metricId}, #{userId}, #{score}, #{payload})
+        ON DUPLICATE KEY UPDATE score = score + VALUES(score), payload = COALESCE(VALUES(payload), payload), update_time = NOW()
+    </insert>
+
     <select id="findRanking" resultMap="BaseMap">
         SELECT score, leaderboard_id, instance_id, metric_id, user_id, tenant_id, id, payload, create_time, update_time
         FROM score_record
