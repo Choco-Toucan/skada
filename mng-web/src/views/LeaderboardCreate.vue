@@ -19,6 +19,9 @@
       </a-form-item>
 
       <a-divider>关联指标</a-divider>
+      <div style="margin-bottom: 8px; color: #888; font-size: 13px">
+        指标按优先级排序，数字越小越靠前。排序时先比较优先级较小的指标，值相同时再比较下一级。
+      </div>
       <div v-for="(item, idx) in form.metrics" :key="idx" style="margin-bottom: 12px">
         <a-row :gutter="8">
           <a-col :span="10">
@@ -29,7 +32,7 @@
             </a-select>
           </a-col>
           <a-col :span="4">
-            <a-input-number v-model:value="item.priority" :min="1" placeholder="优先级" style="width:100%" />
+            <a-input-number v-model:value="item.priority" :min="1" :disabled="form.metrics.length <= 1" placeholder="优先级" style="width:100%" />
           </a-col>
           <a-col :span="6">
             <a-select v-model:value="item.sortOrder">
