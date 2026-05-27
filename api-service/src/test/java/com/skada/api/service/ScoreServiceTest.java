@@ -163,8 +163,8 @@ class ScoreServiceTest {
     }
 
     @Test
-    @DisplayName("submit: 指标关联多个排行榜计划时抛出异常")
-    void submit_multipleMatchingPlans() {
+    @DisplayName("submit: 指标关联多个排行榜计划时全部更新")
+    void submit_multipleMatchingPlans_updatesAll() {
         mockMetricResolve();
 
         LeaderboardMetric lm1 = new LeaderboardMetric();
@@ -174,22 +174,39 @@ class ScoreServiceTest {
         lm2.setLeaderboardId(200L);
         lm2.setMetricId(METRIC_INTERNAL_ID);
         when(leaderboardMetricMapper.findByMetricIds(anyList())).thenReturn(List.of(lm1, lm2));
+        when(leaderboardMetricMapper.findByLeaderboardId(100L)).thenReturn(List.of(lm1));
+        when(leaderboardMetricMapper.findByLeaderboardId(200L)).thenReturn(List.of(lm2));
 
         Leaderboard lb1 = new Leaderboard();
         lb1.setId(100L); lb1.setTenantId(TENANT_ID); lb1.setStatus("active");
+        lb1.setStartTime(System.currentTimeMillis() - 60_000);
+        lb1.setAllowDuplicateReport(1);
         Leaderboard lb2 = new Leaderboard();
         lb2.setId(200L); lb2.setTenantId(TENANT_ID); lb2.setStatus("active");
+        lb2.setStartTime(System.currentTimeMillis() - 60_000);
+        lb2.setAllowDuplicateReport(1);
         when(leaderboardMapper.findById(100L)).thenReturn(lb1);
         when(leaderboardMapper.findById(200L)).thenReturn(lb2);
 
+        LeaderboardInstance inst1 = new LeaderboardInstance();
+        inst1.setId(101L); inst1.setLeaderboardId(100L); inst1.setInstanceSeq(1);
+        LeaderboardInstance inst2 = new LeaderboardInstance();
+        inst2.setId(201L); inst2.setLeaderboardId(200L); inst2.setInstanceSeq(1);
+        when(instanceMapper.findActiveByLeaderboardId(100L)).thenReturn(inst1);
+        when(instanceMapper.findActiveByLeaderboardId(200L)).thenReturn(inst2);
+
+        mockRedisOps();
+
         var metrics = List.of(metricValue(METRIC_EXT_ID, 100.0));
-        assertThatThrownBy(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("关联了多个排行榜计划");
+        assertThatCode(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
+                .doesNotThrowAnyException();
+
+        // 两个计划都写入了数据
+        verify(scoreRecordMapper, times(2)).insertBatch(anyList());
     }
 
     @Test
-    @DisplayName("submit: 排行榜计划不属于该租户时抛出异常")
+    @DisplayName("submit: 匹配的计划不属于该租户时被过滤，无可用计划则抛异常")
     void submit_wrongTenant() {
         mockMetricResolve();
         LeaderboardMetric lm = new LeaderboardMetric();
@@ -197,28 +214,21 @@ class ScoreServiceTest {
         lm.setMetricId(METRIC_INTERNAL_ID);
         when(leaderboardMetricMapper.findByMetricIds(anyList())).thenReturn(List.of(lm));
 
-        // resolveLeaderboardIdByMetricIds 返回匹配的租户
-        Leaderboard lb1 = new Leaderboard();
-        lb1.setId(LEADERBOARD_ID);
-        lb1.setTenantId(TENANT_ID);
-        lb1.setStatus("active");
-
-        // validateAndGetLeaderboard 返回不同租户（安全兜底校验）
-        Leaderboard lb2 = new Leaderboard();
-        lb2.setId(LEADERBOARD_ID);
-        lb2.setTenantId("other-tenant");
-        lb2.setStatus("active");
-
-        when(leaderboardMapper.findById(LEADERBOARD_ID)).thenReturn(lb1, lb2);
+        // 计划属于其他租户，解析时被过滤
+        Leaderboard lb = new Leaderboard();
+        lb.setId(LEADERBOARD_ID);
+        lb.setTenantId("other-tenant");
+        lb.setStatus("active");
+        when(leaderboardMapper.findById(LEADERBOARD_ID)).thenReturn(lb);
 
         var metrics = List.of(metricValue(METRIC_EXT_ID, 100.0));
         assertThatThrownBy(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("不属于该租户");
+                .hasMessageContaining("未关联到任何活跃的排行榜计划");
     }
 
     @Test
-    @DisplayName("submit: 排行榜计划不存在或已终止时抛出异常")
+    @DisplayName("submit: 排行榜计划不存在或已终止时无可用计划抛异常")
     void submit_planNotActive() {
         mockMetricResolve();
         LeaderboardMetric lm = new LeaderboardMetric();
@@ -226,28 +236,21 @@ class ScoreServiceTest {
         lm.setMetricId(METRIC_INTERNAL_ID);
         when(leaderboardMetricMapper.findByMetricIds(anyList())).thenReturn(List.of(lm));
 
-        // resolveLeaderboardIdByMetricIds 返回active的计划
-        Leaderboard lb1 = new Leaderboard();
-        lb1.setId(LEADERBOARD_ID);
-        lb1.setTenantId(TENANT_ID);
-        lb1.setStatus("active");
-
-        // validateAndGetLeaderboard 返回已终止的计划（安全兜底）
-        Leaderboard lb2 = new Leaderboard();
-        lb2.setId(LEADERBOARD_ID);
-        lb2.setTenantId(TENANT_ID);
-        lb2.setStatus("stopped");
-
-        when(leaderboardMapper.findById(LEADERBOARD_ID)).thenReturn(lb1, lb2);
+        // 计划已终止，解析时被过滤
+        Leaderboard lb = new Leaderboard();
+        lb.setId(LEADERBOARD_ID);
+        lb.setTenantId(TENANT_ID);
+        lb.setStatus("stopped");
+        when(leaderboardMapper.findById(LEADERBOARD_ID)).thenReturn(lb);
 
         var metrics = List.of(metricValue(METRIC_EXT_ID, 100.0));
         assertThatThrownBy(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("不存在或已终止");
+                .hasMessageContaining("未关联到任何活跃的排行榜计划");
     }
 
     @Test
-    @DisplayName("submit: 排行榜计划尚未开始时抛出异常")
+    @DisplayName("submit: 排行榜计划尚未开始时不匹配，无可用计划抛异常")
     void submit_notStarted() {
         mockMetricResolve();
         LeaderboardMetric lm = new LeaderboardMetric();
@@ -265,11 +268,11 @@ class ScoreServiceTest {
         var metrics = List.of(metricValue(METRIC_EXT_ID, 100.0));
         assertThatThrownBy(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("尚未开始");
+                .hasMessageContaining("未关联到任何活跃的排行榜计划");
     }
 
     @Test
-    @DisplayName("submit: 排行榜已结束时抛出异常")
+    @DisplayName("submit: 排行榜已结束时不匹配，无可用计划抛异常")
     void submit_alreadyEnded() {
         mockMetricResolve();
         LeaderboardMetric lm = new LeaderboardMetric();
@@ -288,7 +291,7 @@ class ScoreServiceTest {
         var metrics = List.of(metricValue(METRIC_EXT_ID, 100.0));
         assertThatThrownBy(() -> scoreService.submit(TENANT_ID, USER_ID, metrics))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("已结束");
+                .hasMessageContaining("未关联到任何活跃的排行榜计划");
     }
 
     @Test

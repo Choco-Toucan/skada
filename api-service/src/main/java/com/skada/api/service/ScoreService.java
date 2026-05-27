@@ -60,7 +60,7 @@ public class ScoreService {
 
     /**
      * 单条分数上报（含多指标值）
-     * 服务端根据上报的指标集合自动解析对应的排行榜计划
+     * 服务端根据上报的指标集合自动解析对应的所有排行榜计划并分别更新
      * <p>租户身份由 SaasAuthFilter 校验后注入，此处直接使用。</p>
      */
     @Transactional
@@ -69,34 +69,36 @@ public class ScoreService {
         Map<String, Long> metricIdMap = resolveMetricIds(metrics);
         List<Long> internalMetricIds = new ArrayList<>(metricIdMap.values());
 
-        // 根据指标集合解析排行榜计划
-        Long leaderboardId = resolveLeaderboardIdByMetricIds(tenantId, internalMetricIds);
+        // 根据指标集合解析所有匹配的排行榜计划
+        List<Leaderboard> plans = resolveLeaderboardPlansByMetricIds(tenantId, internalMetricIds);
 
-        Leaderboard lb = validateAndGetLeaderboard(leaderboardId, tenantId);
-        LeaderboardInstance instance = validateAndGetActiveInstance(leaderboardId);
+        for (Leaderboard lb : plans) {
+            LeaderboardInstance instance = validateAndGetActiveInstance(lb.getId());
 
-        // 校验指标属于该计划
-        validateMetricsAgainstPlan(leaderboardId, metrics, metricIdMap);
+            // 校验指标属于该计划
+            validateMetricsAgainstPlan(lb.getId(), metrics, metricIdMap);
 
-        // 检查是否允许重复上报（增量模式不限制）
-        if (lb.getAllowDuplicateReport() == 0 && !isAllIncrement(metrics)) {
-            ScoreRecord existing = scoreRecordMapper.findByUserAndInstance(
-                    leaderboardId, instance.getId(), userId);
-            if (existing != null) {
-                throw new BusinessException("该用户已上报过分数，不允许重复上报");
+            // 检查是否允许重复上报（增量模式不限制）
+            if (lb.getAllowDuplicateReport() == 0 && !isAllIncrement(metrics)) {
+                ScoreRecord existing = scoreRecordMapper.findByUserAndInstance(
+                        lb.getId(), instance.getId(), userId);
+                if (existing != null) {
+                    throw new BusinessException("该用户已上报过分数，不允许重复上报");
+                }
             }
+
+            writeMetrics(tenantId, lb.getId(), instance.getId(), userId, metrics, metricIdMap);
+
+            String userCountKey = String.format(USER_COUNT_KEY_PREFIX, lb.getId(), instance.getId());
+            redisTemplate.opsForHyperLogLog().add(userCountKey, userId);
+
+            checkUserCountRoll(lb, instance);
         }
-
-        writeMetrics(tenantId, leaderboardId, instance.getId(), userId, metrics, metricIdMap);
-
-        String userCountKey = String.format(USER_COUNT_KEY_PREFIX, leaderboardId, instance.getId());
-        redisTemplate.opsForHyperLogLog().add(userCountKey, userId);
-
-        checkUserCountRoll(lb, instance);
     }
 
     /**
-     * 批量分数上报（同一排行榜计划）
+     * 批量分数上报
+     * 根据指标集合解析所有匹配的排行榜计划并分别更新
      * <p>租户身份由 SaasAuthFilter 校验后注入，此处直接使用。</p>
      */
     @Transactional
@@ -120,30 +122,32 @@ public class ScoreService {
             }
         }
 
-        Long leaderboardId = resolveLeaderboardIdByMetricIds(tenantId, internalMetricIds);
-        Leaderboard lb = validateAndGetLeaderboard(leaderboardId, tenantId);
-        LeaderboardInstance instance = validateAndGetActiveInstance(leaderboardId);
+        List<Leaderboard> plans = resolveLeaderboardPlansByMetricIds(tenantId, internalMetricIds);
 
-        if (lb.getAllowDuplicateReport() == 0) {
-            for (var item : items) {
-                if (isAllIncrement(item.getMetrics())) {
-                    continue;
-                }
-                ScoreRecord existing = scoreRecordMapper.findByUserAndInstance(
-                        leaderboardId, instance.getId(), item.getUserId());
-                if (existing != null) {
-                    throw new BusinessException("用户 " + item.getUserId() + " 已上报过分数，不允许重复上报");
+        for (Leaderboard lb : plans) {
+            LeaderboardInstance instance = validateAndGetActiveInstance(lb.getId());
+
+            if (lb.getAllowDuplicateReport() == 0) {
+                for (var item : items) {
+                    if (isAllIncrement(item.getMetrics())) {
+                        continue;
+                    }
+                    ScoreRecord existing = scoreRecordMapper.findByUserAndInstance(
+                            lb.getId(), instance.getId(), item.getUserId());
+                    if (existing != null) {
+                        throw new BusinessException("用户 " + item.getUserId() + " 已上报过分数，不允许重复上报");
+                    }
                 }
             }
-        }
 
-        String userCountKey = String.format(USER_COUNT_KEY_PREFIX, leaderboardId, instance.getId());
-        for (var item : items) {
-            writeMetrics(tenantId, leaderboardId, instance.getId(), item.getUserId(), item.getMetrics(), metricIdMap);
-            redisTemplate.opsForHyperLogLog().add(userCountKey, item.getUserId());
-        }
+            String userCountKey = String.format(USER_COUNT_KEY_PREFIX, lb.getId(), instance.getId());
+            for (var item : items) {
+                writeMetrics(tenantId, lb.getId(), instance.getId(), item.getUserId(), item.getMetrics(), metricIdMap);
+                redisTemplate.opsForHyperLogLog().add(userCountKey, item.getUserId());
+            }
 
-        checkUserCountRoll(lb, instance);
+            checkUserCountRoll(lb, instance);
+        }
     }
 
     /**
@@ -162,10 +166,15 @@ public class ScoreService {
         return map;
     }
 
-    private Long resolveLeaderboardIdByMetricIds(String tenantId, List<Long> metricIds) {
+    /**
+     * 根据上报的指标集合解析所有匹配的排行榜计划
+     * 上报的指标集合必须包含某计划需要的全部指标（但计划可包含额外指标）
+     * 一份上报数据可同时更新多个排行榜计划（如日榜+周榜+月榜）
+     */
+    private List<Leaderboard> resolveLeaderboardPlansByMetricIds(String tenantId, List<Long> metricIds) {
         List<LeaderboardMetric> matched = leaderboardMetricMapper.findByMetricIds(metricIds);
 
-        // 按leaderboardId分组，找出包含所有指标的计划
+        // 按leaderboardId分组，找出包含所有上报指标的计划
         Map<Long, Set<Long>> planMetrics = new HashMap<>();
         for (LeaderboardMetric lm : matched) {
             planMetrics.computeIfAbsent(lm.getLeaderboardId(), k -> new HashSet<>()).add(lm.getMetricId());
@@ -178,23 +187,30 @@ public class ScoreService {
             }
         }
 
-        // 验证这些计划属于该租户并且是active状态
+        // 验证这些计划属于该租户、active且时间有效
         List<Leaderboard> validPlans = new ArrayList<>();
         for (Long planId : matchingPlanIds) {
             Leaderboard lb = leaderboardMapper.findById(planId);
-            if (lb != null && lb.getTenantId().equals(tenantId) && "active".equals(lb.getStatus())) {
-                validPlans.add(lb);
+            if (lb == null || !"active".equals(lb.getStatus())) {
+                continue;
             }
+            if (!lb.getTenantId().equals(tenantId)) {
+                continue;
+            }
+            if (lb.getStartTime() > System.currentTimeMillis()) {
+                continue;
+            }
+            if (lb.getEndTime() != null && lb.getEndTime() <= System.currentTimeMillis()) {
+                continue;
+            }
+            validPlans.add(lb);
         }
 
         if (validPlans.isEmpty()) {
             throw new BusinessException("上报的指标集合未关联到任何活跃的排行榜计划");
         }
-        if (validPlans.size() > 1) {
-            throw new BusinessException("上报的指标集合关联了多个排行榜计划，请检查指标配置");
-        }
 
-        return validPlans.get(0).getId();
+        return validPlans;
     }
 
     private void writeMetrics(String tenantId, Long leaderboardId, Long instanceId,
@@ -245,23 +261,6 @@ public class ScoreService {
     /** 判断所有指标是否都是增量模式 */
     private boolean isAllIncrement(List<MetricValue> metrics) {
         return metrics != null && metrics.stream().allMatch(MetricValue::isIncrement);
-    }
-
-    private Leaderboard validateAndGetLeaderboard(Long leaderboardId, String tenantId) {
-        Leaderboard lb = leaderboardMapper.findById(leaderboardId);
-        if (lb == null || !"active".equals(lb.getStatus())) {
-            throw new BusinessException("排行榜计划不存在或已终止");
-        }
-        if (!lb.getTenantId().equals(tenantId)) {
-            throw new BusinessException("排行榜计划不属于该租户");
-        }
-        if (lb.getStartTime() > System.currentTimeMillis()) {
-            throw new BusinessException("排行榜计划尚未开始");
-        }
-        if (lb.getEndTime() != null && lb.getEndTime() <= System.currentTimeMillis()) {
-            throw new BusinessException("排行榜已结束");
-        }
-        return lb;
     }
 
     private LeaderboardInstance validateAndGetActiveInstance(Long leaderboardId) {
