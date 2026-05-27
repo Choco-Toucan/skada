@@ -156,7 +156,7 @@ const rollingId = ref<number | null>(null)
 const stoppingId = ref<number | null>(null)
 
 const columns = [
-  { title: 'ID', dataIndex: 'id', key: 'id' },
+  { title: 'ID', dataIndex: 'planId', key: 'id' },
   { title: '名称', dataIndex: 'name', key: 'name' },
   { title: '所属租户', key: 'tenantId' },
   { title: '滚动策略', key: 'rollStrategy' },
