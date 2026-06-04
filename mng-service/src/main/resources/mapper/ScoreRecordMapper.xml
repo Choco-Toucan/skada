@@ -11,6 +11,8 @@
         <result column="user_id" property="userId"/>
         <result column="score" property="score"/>
         <result column="payload" property="payload"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
         <result column="metric_name" property="metricName"/>
         <result column="metric_external_id" property="metricExternalId"/>
     </resultMap>
@@ -18,6 +20,7 @@
     <select id="findByInstance" resultMap="scoreWithMetric">
         SELECT sr.id, sr.tenant_id, sr.leaderboard_id, sr.instance_id,
                sr.metric_id, sr.user_id, sr.score, sr.payload,
+               sr.create_time, sr.update_time,
                m.name AS metric_name, m.metric_id AS metric_external_id
         FROM score_record sr
         JOIN metric m ON sr.metric_id = m.id
@@ -28,6 +31,7 @@
     <select id="findPayloadsByUsers" resultMap="scoreWithMetric">
         SELECT sr.id, sr.tenant_id, sr.leaderboard_id, sr.instance_id,
                sr.metric_id, sr.user_id, sr.score, sr.payload,
+               sr.create_time, sr.update_time,
                m.name AS metric_name, m.metric_id AS metric_external_id
         FROM score_record sr
         JOIN metric m ON sr.metric_id = m.id

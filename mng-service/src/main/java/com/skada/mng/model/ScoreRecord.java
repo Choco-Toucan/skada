@@ -16,6 +16,9 @@ public class ScoreRecord {
     private BigDecimal score;
     private String payload;
 
+    private String createTime;
+    private String updateTime;
+
     private String metricName;
     private String metricExternalId;
 
@@ -35,6 +38,11 @@ public class ScoreRecord {
     public void setScore(BigDecimal score) { this.score = score; }
     public String getPayload() { return payload; }
     public void setPayload(String payload) { this.payload = payload; }
+    public String getCreateTime() { return createTime; }
+    public void setCreateTime(String createTime) { this.createTime = createTime; }
+    public String getUpdateTime() { return updateTime; }
+    public void setUpdateTime(String updateTime) { this.updateTime = updateTime; }
+
     public String getMetricName() { return metricName; }
     public void setMetricName(String metricName) { this.metricName = metricName; }
     public String getMetricExternalId() { return metricExternalId; }
