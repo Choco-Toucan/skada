@@ -68,7 +68,7 @@ public class LeaderboardQueryService {
         if (tenant == null || !tenant.isEnabled()) {
             throw new BusinessException("租户不存在或已停用");
         }
-        if (tenant.getAllowAnonymousQuery() == 0) {
+        if (!tenant.getAllowAnonymousQuery()) {
             if (requestTenantId == null || !requestTenantId.equals(lb.getTenantId())) {
                 throw new BusinessException(BizCode.TENANT_AUTH_FAILED, "租户凭证无效或无权查询");
             }

@@ -11,7 +11,7 @@ public class Tenant {
     private String tenantId;
     private String name;
     private String secretKey;
-    private Integer allowAnonymousQuery;
+    private Boolean allowAnonymousQuery;
     private Integer status;
 
     public Long getId() { return id; }
@@ -22,8 +22,8 @@ public class Tenant {
     public void setName(String name) { this.name = name; }
     public String getSecretKey() { return secretKey; }
     public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
-    public Integer getAllowAnonymousQuery() { return allowAnonymousQuery; }
-    public void setAllowAnonymousQuery(Integer allowAnonymousQuery) { this.allowAnonymousQuery = allowAnonymousQuery; }
+    public Boolean getAllowAnonymousQuery() { return allowAnonymousQuery; }
+    public void setAllowAnonymousQuery(Boolean allowAnonymousQuery) { this.allowAnonymousQuery = allowAnonymousQuery; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
 

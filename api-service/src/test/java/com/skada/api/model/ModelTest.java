@@ -184,14 +184,14 @@ class ModelTest {
             t.setTenantId("tenant-001");
             t.setName("测试租户");
             t.setSecretKey("secret-123");
-            t.setAllowAnonymousQuery(1);
+            t.setAllowAnonymousQuery(true);
             t.setStatus(1);
 
             assertThat(t.getId()).isEqualTo(1L);
             assertThat(t.getTenantId()).isEqualTo("tenant-001");
             assertThat(t.getName()).isEqualTo("测试租户");
             assertThat(t.getSecretKey()).isEqualTo("secret-123");
-            assertThat(t.getAllowAnonymousQuery()).isEqualTo(1);
+            assertThat(t.getAllowAnonymousQuery()).isEqualTo(true);
             assertThat(t.getStatus()).isEqualTo(1);
         }
 

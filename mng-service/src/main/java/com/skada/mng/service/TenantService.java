@@ -42,7 +42,7 @@ public class TenantService {
         // 生成密钥
         tenant.setSecretKey("sk_" + UUID.randomUUID().toString().replace("-", ""));
         tenant.setName(request.getName().trim());
-        tenant.setAllowAnonymousQuery(request.getAllowAnonymousQuery() != null ? request.getAllowAnonymousQuery() : 0);
+        tenant.setAllowAnonymousQuery(request.getAllowAnonymousQuery() != null ? request.getAllowAnonymousQuery() : false);
         tenant.setCreateBy(adminId);
         tenant.setUpdateBy(adminId);
 

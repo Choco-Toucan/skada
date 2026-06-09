@@ -74,7 +74,7 @@ class LeaderboardQueryServiceTest {
         Tenant tenant = new Tenant();
         tenant.setTenantId(TENANT_ID);
         tenant.setStatus(1);
-        tenant.setAllowAnonymousQuery(1);
+        tenant.setAllowAnonymousQuery(true);
         when(tenantMapper.findByTenantId(TENANT_ID)).thenReturn(tenant);
     }
 
@@ -149,7 +149,7 @@ class LeaderboardQueryServiceTest {
         Tenant tenant = new Tenant();
         tenant.setTenantId(TENANT_ID);
         tenant.setStatus(1);
-        tenant.setAllowAnonymousQuery(0);
+        tenant.setAllowAnonymousQuery(false);
         when(tenantMapper.findByTenantId(TENANT_ID)).thenReturn(tenant);
 
         assertThatThrownBy(() -> queryService.getRanking(PLAN_ID, null, 0, 9, null))

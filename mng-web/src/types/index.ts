@@ -34,7 +34,7 @@ export interface Tenant {
   tenantId: string
   name: string
   secretKey: string
-  allowAnonymousQuery: number
+  allowAnonymousQuery: boolean
   status: number
   createTime: string
   updateTime: string
@@ -43,14 +43,14 @@ export interface Tenant {
 /** 创建租户请求 */
 export interface TenantCreateRequest {
   name: string
-  allowAnonymousQuery?: number
+  allowAnonymousQuery?: boolean
 }
 
 /** 更新租户请求 */
 export interface TenantUpdateRequest {
   id: number
   name?: string
-  allowAnonymousQuery?: number
+  allowAnonymousQuery?: boolean
   status?: number
 }
 

@@ -19,6 +19,11 @@
           <span v-if="!loading && !error">暂无租户数据</span>
         </template>
         <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'allowAnonymousQuery'">
+            <a-tag :color="record.allowAnonymousQuery ? 'green' : 'default'">
+              {{ record.allowAnonymousQuery ? '允许' : '不允许' }}
+            </a-tag>
+          </template>
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 1 ? 'green' : 'red'">
               {{ record.status === 1 ? '启用' : '停用' }}
@@ -112,7 +117,7 @@ async function showEdit(record: Tenant) {
   isEdit.value = true
   editId.value = record.id
   form.name = record.name
-  form.allowAnonymousQuery = record.allowAnonymousQuery === 1
+  form.allowAnonymousQuery = record.allowAnonymousQuery
   form.status = record.status
   modalOpen.value = true
 }
@@ -120,9 +125,9 @@ async function showEdit(record: Tenant) {
 async function handleSubmit() {
   try {
     if (isEdit.value) {
-      await updateTenant({ id: editId.value, name: form.name, allowAnonymousQuery: form.allowAnonymousQuery ? 1 : 0, status: form.status })
+      await updateTenant({ id: editId.value, name: form.name, allowAnonymousQuery: form.allowAnonymousQuery, status: form.status })
     } else {
-      await createTenant({ name: form.name, allowAnonymousQuery: form.allowAnonymousQuery ? 1 : 0 })
+      await createTenant({ name: form.name, allowAnonymousQuery: form.allowAnonymousQuery })
     }
     modalOpen.value = false
     await fetchTenants()
