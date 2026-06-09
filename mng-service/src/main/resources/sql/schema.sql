@@ -96,10 +96,10 @@ CREATE TABLE IF NOT EXISTS leaderboard_plan (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜计划';
 
 -- ------------------------------------------------------------
--- 排行榜关联指标表
+-- 排行榜关联指标映射表(leaderboard_metric_mapping)
 -- 每个排行榜计划关联一个或多个指标，按优先级排序
 -- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS leaderboard_metric (
+CREATE TABLE IF NOT EXISTS leaderboard_metric_mapping (
     id              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
     leaderboard_id  BIGINT      NOT NULL COMMENT '排行榜计划ID',
     metric_id       BIGINT      NOT NULL COMMENT '指标ID',
@@ -110,9 +110,9 @@ CREATE TABLE IF NOT EXISTS leaderboard_metric (
     create_by       VARCHAR(64) NOT NULL DEFAULT 'system' COMMENT '创建人',
     update_by       VARCHAR(64) NOT NULL DEFAULT 'system' COMMENT '更新人',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_leaderboard_metric (leaderboard_id, metric_id),
+    UNIQUE KEY uk_leaderboard_metric_mapping (leaderboard_id, metric_id),
     KEY idx_metric_id (metric_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜关联指标';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='排行榜关联指标映射';
 
 -- ------------------------------------------------------------
 -- 排行榜实例表 (Leaderboard Instance)

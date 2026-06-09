@@ -16,12 +16,12 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order, create_by, update_by)
+        INSERT INTO leaderboard_metric_mapping (leaderboard_id, metric_id, priority, sort_order, create_by, update_by)
         VALUES (#{leaderboardId}, #{metricId}, #{priority}, #{sortOrder}, #{createBy}, #{updateBy})
     </insert>
 
     <insert id="insertBatch" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO leaderboard_metric (leaderboard_id, metric_id, priority, sort_order, create_by, update_by)
+        INSERT INTO leaderboard_metric_mapping (leaderboard_id, metric_id, priority, sort_order, create_by, update_by)
         VALUES
         <foreach collection="list" item="item" separator=",">
             (#{item.leaderboardId}, #{item.metricId}, #{item.priority}, #{item.sortOrder}, #{item.createBy}, #{item.updateBy})
@@ -29,15 +29,15 @@
     </insert>
 
     <delete id="deleteByLeaderboardId">
-        DELETE FROM leaderboard_metric WHERE leaderboard_id = #{leaderboardId}
+        DELETE FROM leaderboard_metric_mapping WHERE leaderboard_id = #{leaderboardId}
     </delete>
 
     <select id="findByLeaderboardId" resultMap="BaseMap">
-        SELECT * FROM leaderboard_metric WHERE leaderboard_id = #{leaderboardId} ORDER BY priority ASC
+        SELECT * FROM leaderboard_metric_mapping WHERE leaderboard_id = #{leaderboardId} ORDER BY priority ASC
     </select>
 
     <select id="countByMetricId" resultType="int">
-        SELECT COUNT(*) FROM leaderboard_metric WHERE metric_id = #{metricId}
+        SELECT COUNT(*) FROM leaderboard_metric_mapping WHERE metric_id = #{metricId}
     </select>
 
 </mapper>

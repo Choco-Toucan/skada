@@ -14,11 +14,11 @@
     </resultMap>
 
     <select id="findByLeaderboardId" resultMap="BaseMap">
-        SELECT * FROM leaderboard_metric WHERE leaderboard_id = #{leaderboardId}
+        SELECT * FROM leaderboard_metric_mapping WHERE leaderboard_id = #{leaderboardId}
     </select>
 
     <select id="findByMetricIds" resultMap="BaseMap">
-        SELECT * FROM leaderboard_metric WHERE metric_id IN
+        SELECT * FROM leaderboard_metric_mapping WHERE metric_id IN
         <foreach collection="metricIds" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>

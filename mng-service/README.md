@@ -55,7 +55,7 @@ B端管理服务 — 租户管理、指标管理、排行榜计划配置、调�
 | `tenant` | 租户 |
 | `metric` | 指标定义 |
 | `leaderboard_plan` | 排行榜计划 |
-| `leaderboard_metric` | 排行榜关联指标（优先级+排序） |
+| `leaderboard_metric_mapping` | 排行榜关联指标映射（优先级+排序） |
 | `leaderboard_instance` | 排行榜实例 |
 | `score_record` | 分数记录（多指标值） |
 
