@@ -7,11 +7,18 @@ spring:
   h2:
     console:
       enabled: true
+  sql:
+    init:
+      schema-locations: classpath:schema-h2.sql
+      mode: always
   data:
     redis:
       host: localhost
       port: 6379
       timeout: 3000ms
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
 
 mybatis:
   configuration:

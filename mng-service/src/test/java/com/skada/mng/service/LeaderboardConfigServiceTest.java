@@ -22,6 +22,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -388,6 +390,241 @@ class LeaderboardConfigServiceTest {
             assertThatThrownBy(() -> configService.getRanking(1L, 1L, 0, 9))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("未关联指标");
+        }
+
+        @Test
+        @DisplayName("正常查询排名（降序）")
+        void getRanking_descending() {
+            LeaderboardMetric metric = new LeaderboardMetric();
+            metric.setMetricId(10L);
+            metric.setPriority(1);
+            metric.setSortOrder("desc");
+            when(leaderboardMetricMapper.findByLeaderboardId(1L)).thenReturn(new ArrayList<>(Arrays.asList(metric)));
+
+            com.skada.mng.model.ScoreRecord r1 = new com.skada.mng.model.ScoreRecord();
+            r1.setUserId("user1");
+            r1.setMetricId(10L);
+            r1.setScore(new java.math.BigDecimal("100"));
+            r1.setPayload("{}");
+
+            com.skada.mng.model.ScoreRecord r2 = new com.skada.mng.model.ScoreRecord();
+            r2.setUserId("user2");
+            r2.setMetricId(10L);
+            r2.setScore(new java.math.BigDecimal("200"));
+            r2.setPayload("{}");
+
+            when(scoreRecordMapper.findByInstance(1L, 1L)).thenReturn(List.of(r1, r2));
+
+            var result = configService.getRanking(1L, 1L, 0, 9);
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).getUserId()).isEqualTo("user2"); // 200 > 100, desc排序
+            assertThat(result.get(0).getRank()).isEqualTo(1);
+            assertThat(result.get(1).getUserId()).isEqualTo("user1");
+            assertThat(result.get(1).getRank()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("正常查询排名（升序）")
+        void getRanking_ascending() {
+            LeaderboardMetric metric = new LeaderboardMetric();
+            metric.setMetricId(10L);
+            metric.setPriority(1);
+            metric.setSortOrder("asc");
+            when(leaderboardMetricMapper.findByLeaderboardId(1L)).thenReturn(new ArrayList<>(Arrays.asList(metric)));
+
+            com.skada.mng.model.ScoreRecord r1 = new com.skada.mng.model.ScoreRecord();
+            r1.setUserId("user1");
+            r1.setMetricId(10L);
+            r1.setScore(new java.math.BigDecimal("100"));
+
+            com.skada.mng.model.ScoreRecord r2 = new com.skada.mng.model.ScoreRecord();
+            r2.setUserId("user2");
+            r2.setMetricId(10L);
+            r2.setScore(new java.math.BigDecimal("50"));
+
+            when(scoreRecordMapper.findByInstance(1L, 1L)).thenReturn(List.of(r1, r2));
+
+            var result = configService.getRanking(1L, 1L, 0, 9);
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).getUserId()).isEqualTo("user2"); // 50 < 100, asc排序
+        }
+
+        @Test
+        @DisplayName("空记录时返回空列表")
+        void getRanking_empty() {
+            LeaderboardMetric metric = new LeaderboardMetric();
+            metric.setMetricId(10L);
+            metric.setPriority(1);
+            metric.setSortOrder("desc");
+            when(leaderboardMetricMapper.findByLeaderboardId(1L)).thenReturn(new ArrayList<>(Arrays.asList(metric)));
+            when(scoreRecordMapper.findByInstance(1L, 1L)).thenReturn(List.of());
+
+            var result = configService.getRanking(1L, 1L, 0, 9);
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findByTenantId")
+    class FindByTenantId {
+
+        @Test
+        @DisplayName("查询租户下的排行榜")
+        void findByTenantId_success() {
+            Leaderboard lb = new Leaderboard();
+            lb.setId(1L);
+            when(leaderboardMapper.findByTenantId(TENANT_ID)).thenReturn(List.of(lb));
+
+            var result = configService.findByTenantId(TENANT_ID);
+
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("findAll")
+    class FindAll {
+
+        @Test
+        @DisplayName("查询所有排行榜")
+        void findAll_success() {
+            when(leaderboardMapper.findAll()).thenReturn(List.of());
+
+            var result = configService.findAll();
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getInstances")
+    class GetInstances {
+
+        @Test
+        @DisplayName("查询排行榜的所有实例")
+        void getInstances_success() {
+            LeaderboardInstance inst = new LeaderboardInstance();
+            inst.setId(1L);
+            when(instanceMapper.findByLeaderboardId(1L)).thenReturn(List.of(inst));
+
+            var result = configService.getInstances(1L);
+
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateCreateRequest 边缘情况")
+    class ValidateCreateRequestEdgeCases {
+
+        @Test
+        @DisplayName("租户ID为空字符串时抛出异常")
+        void create_blankTenantId_throws() {
+            LeaderboardCreateRequest req = validRequest();
+            req.setTenantId("  ");
+            when(tenantService.findByTenantId(any())).thenReturn(new Tenant());
+
+            assertThatThrownBy(() -> configService.create(req, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("租户ID不能为空");
+        }
+
+        @Test
+        @DisplayName("排行榜名称为空时抛出异常")
+        void create_blankName_throws() {
+            LeaderboardCreateRequest req = validRequest();
+            req.setName("");
+            when(tenantService.findByTenantId(TENANT_ID)).thenReturn(new Tenant());
+
+            assertThatThrownBy(() -> configService.create(req, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("排行榜名称不能为空");
+        }
+
+        @Test
+        @DisplayName("开始时间为null时抛出异常")
+        void create_nullStartTime_throws() {
+            LeaderboardCreateRequest req = validRequest();
+            req.setStartTime(null);
+            when(tenantService.findByTenantId(TENANT_ID)).thenReturn(new Tenant());
+
+            assertThatThrownBy(() -> configService.create(req, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("开始时间不能为空");
+        }
+
+        @Test
+        @DisplayName("周期性滚动时间单位无效时抛出异常")
+        void create_invalidRollUnit_throws() {
+            LeaderboardCreateRequest req = validRequest();
+            req.setRollStrategy("periodic");
+            req.setRollIntervalValue(1);
+            req.setRollIntervalUnit("second");
+            when(tenantService.findByTenantId(TENANT_ID)).thenReturn(new Tenant());
+
+            assertThatThrownBy(() -> configService.create(req, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("时间单位必须为 minute/hour/day");
+        }
+    }
+
+    @Nested
+    @DisplayName("roll/stop 补充")
+    class RollStopAdditional {
+
+        @Test
+        @DisplayName("roll 获取锁后发现无活跃实例抛出异常")
+        void roll_noActiveInstanceAfterLock_throws() {
+            Leaderboard lb = new Leaderboard();
+            lb.setId(1L);
+            lb.setStatus("active");
+            when(leaderboardMapper.findById(1L)).thenReturn(lb);
+            when(distributedLock.tryLock(anyString(), anyString(), eq(10L), eq(TimeUnit.SECONDS)))
+                    .thenReturn(true);
+            when(instanceMapper.findActiveByLeaderboardId(1L)).thenReturn(null);
+
+            assertThatThrownBy(() -> configService.roll(1L, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("没有活跃实例");
+            verify(distributedLock).unlock(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("stop 获取分布式锁失败时抛出异常")
+        void stop_lockFailed_throws() {
+            Leaderboard lb = new Leaderboard();
+            lb.setId(1L);
+            lb.setStatus("active");
+            when(leaderboardMapper.findById(1L)).thenReturn(lb);
+            when(distributedLock.tryLock(anyString(), anyString(), eq(10L), eq(TimeUnit.SECONDS)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> configService.stop(1L, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("操作进行中");
+        }
+
+        @Test
+        @DisplayName("stop 有活跃实例时关闭该实例")
+        void stop_withActiveInstance_closesIt() {
+            Leaderboard lb = new Leaderboard();
+            lb.setId(1L);
+            lb.setStatus("active");
+            when(leaderboardMapper.findById(1L)).thenReturn(lb);
+            when(distributedLock.tryLock(anyString(), anyString(), eq(10L), eq(TimeUnit.SECONDS)))
+                    .thenReturn(true);
+
+            LeaderboardInstance active = new LeaderboardInstance();
+            active.setId(100L);
+            when(instanceMapper.findActiveByLeaderboardId(1L)).thenReturn(active);
+
+            configService.stop(1L, ADMIN_ID);
+
+            verify(instanceMapper).closeInstance(eq(100L), anyLong());
+            assertThat(lb.getStatus()).isEqualTo("stopped");
         }
     }
 
