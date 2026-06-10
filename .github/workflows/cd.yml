@@ -81,9 +81,9 @@ jobs:
 
           check_exists() {
             local path="$1" output
-            echo "=== check_exists: $path ==="
+            echo "=== check_exists: $path ===" >&2
             output=$(ossutil stat "$path" $OSS_FLAGS 2>&1) || true
-            echo "$output"
+            echo "$output" >&2
             # 404 / 对象不存在 — 必须最先判断
             if echo "$output" | grep -qi "NoSuchKey\|does not exist\|StatusCode: 404"; then
               echo "not_found"
